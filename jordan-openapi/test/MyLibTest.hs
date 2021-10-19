@@ -51,7 +51,7 @@ instance ToJSON Directory
 instance ToJSON File
 
 instance FromJSON FileEntry where
-  parseJSON = parseObject "FileEntry" $
+  fromJSON = parseObject "FileEntry" $
     FileEntry <$> parseField "name" <*> parseField "contents"
 
 instance FromJSON File where
