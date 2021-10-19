@@ -1,0 +1,74 @@
+cabal-version:      2.4
+name:               jordan
+version:            0.1.0.0
+synopsis:           JSON with Structure
+
+-- A longer description of the package.
+-- description:
+homepage:
+
+-- A URL where users can report bugs.
+-- bug-reports:
+license:            MIT
+license-file:       LICENSE
+author:             Anthony Super
+maintainer:         anthony@noided.media
+
+-- A copyright notice.
+-- copyright:
+category:           Codec
+extra-source-files: CHANGELOG.md
+
+common build-deps
+  build-depends:
+      text
+    , bytestring
+    , megaparsec
+    , attoparsec
+    , parsers
+    , contravariant
+    , scientific
+    , parser-combinators
+    , transformers
+    , mtl
+
+library
+    import: build-deps
+    exposed-modules:
+        Jordan.FromJSON.Class
+      , Jordan.FromJSON.Megaparsec
+      , Jordan.FromJSON.Attoparsec
+      , Jordan.FromJSON.ParseInternal
+      , Jordan.ToJSON.Class
+      , Jordan.ToJSON.Text
+      , Jordan.ToJSON.Builder
+      , Jordan.Generic.Options
+      , Jordan
+
+    -- Modules included in this library but not exported.
+    -- other-modules:
+
+    -- LANGUAGE extensions used by modules in this package.
+    -- other-extensions:
+    build-depends:    base ^>=4.14.1.0
+    hs-source-dirs:   lib
+    default-language: Haskell2010
+
+test-suite jordan-test
+    import: build-deps
+    build-depends:
+        hspec
+      , hspec-megaparsec
+      , jordan
+      , raw-strings-qq
+    other-modules:
+        Jordan.FromJSON.MegaparsecSpec
+      , Jordan.FromJSON.AttoparsecSpec
+      , Jordan.SpecDefs
+      , Jordan.ToJSON.TextSpec
+      , Jordan.ToJSON.BuilderSpec
+    default-language: Haskell2010
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   test
+    main-is:          JordanSpec.hs
+    build-depends:    base ^>=4.14.1.0
