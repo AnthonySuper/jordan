@@ -146,6 +146,9 @@ instance (FromJSON Bool) where
 instance FromJSON T.Text where
   fromJSON = parseText
 
+instance FromJSON Int where
+  fromJSON = fmap round parseNumber
+
 data FromJSONOptions
   = FromJSONOptions
   { fromJSONEncodeSums :: SumTypeEncoding

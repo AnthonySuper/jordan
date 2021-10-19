@@ -18,3 +18,35 @@ This repository consists of two projects:
   This is a pretty basic package, but demonstrates how inspectable these parsers are!
 
 This project is *highly alpha* and more of a proof-of-concept than anything.
+
+## Example
+
+Let's say I have a Haskell datatype, which looks like this:
+
+```haskell
+data Person
+  = Person
+  { name :: Text
+  , age :: Int 
+  }
+```
+
+With Jordan, I can write *instructions* on how to convert this to and from JSON. Like so:
+
+```haskell
+instance FromJSON Person where
+  fromJSON = parseObject "Person.Input"
+    (Person <$> parseField "name" <*> parseField "age")
+
+instance ToJSON Person where
+  toJSON = serializeObject "Person.Output" $
+    divide
+      (\(Person name age) -> (name, age))
+      (writeField "name" serializeText)
+      (writeField "age" $ contramap realToFrac serializeNumber)
+```
+
+Note that everything here is kept abstract: by using the [Applicative](https://hackage.haskell.org/package/base-4.15.0.0/docs/Control-Applicative.html#t:Applicative) typeclass for parsing, and the [divisible](https://hackage.haskell.org/package/base-4.15.0.0/docs/Control-Applicative.html#t:Applicative) typeclass for serialization, we define *abstract instructions* for how to convert our type to or from JSON.
+This means that we can then *generate a parser* that specifically works on our type, *directly serialize* without any intermediate structures, and *derive documentation* from our instructions.
+Even better, this is all doable *generically*: for most datatypes, the compiler can generate the instructions for you!
+
