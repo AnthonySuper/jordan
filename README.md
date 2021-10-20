@@ -48,5 +48,16 @@ instance ToJSON Person where
 
 Note that everything here is kept abstract: by using the [Applicative](https://hackage.haskell.org/package/base-4.15.0.0/docs/Control-Applicative.html#t:Applicative) typeclass for parsing, and the [divisible](https://hackage.haskell.org/package/base-4.15.0.0/docs/Control-Applicative.html#t:Applicative) typeclass for serialization, we define *abstract instructions* for how to convert our type to or from JSON.
 This means that we can then *generate a parser* that specifically works on our type, *directly serialize* without any intermediate structures, and *derive documentation* from our instructions.
-Even better, this is all doable *generically*: for most datatypes, the compiler can generate the instructions for you!
+Even better, this is all doable *generically*: for most datatypes, the compiler can generate the instructions for you, as long as you have an instance of `Generic` available!
 
+## Benefits
+
+- JSON parsing/serialization is kept *entirely abstract*, so you can plug in new parsers or serializers easily.
+- The lack of intermediate data structures avoids the need for things like `toEncoding` from aeson: it can be provided directly
+- You get to say "Yes, I use divisible contravariant functors in production," which has to feel good.
+  Edward Kmett might even let you into category theory nirvana after you die.
+
+## Performance
+
+I honestly have no idea, unfortunately.
+I am trying to work on some benchmarks now.

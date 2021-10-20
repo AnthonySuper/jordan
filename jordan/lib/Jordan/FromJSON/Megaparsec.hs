@@ -248,16 +248,24 @@ instance JSONParser MegaparsecParser where
       Left a -> fail (Text.unpack a)
       Right a -> pure a
 
+-- | Convert an abstract JSONParser to a Megaparsec parser.
+convertParserToMegaparsecParser :: (forall parser. JSONParser parser => parser a) -> Parser a
+convertParserToMegaparsecParser = getMegaparsecParser
+
 -- | Get a megaparsec parser for your JSON value.
 -- This parser will not construct any intermediate maps or other structures - your object will be parsed directly!
 --
 -- Note: this parser, until the ones that are built into the class, can consume whitespace at the start of the JSON.
-getParser :: (FromJSON val) => Parser val
-getParser = takeSpace *> getMegaparsecParser fromJSON
+megaparsecParser :: (FromJSON val) => Parser val
+megaparsecParser = takeSpace *> getMegaparsecParser fromJSON
 
-parseViaMegaparsec :: forall val. (FromJSON val) => Text.Text -> Either String val
-parseViaMegaparsec t =
-  case T.runParser (getParser @val) "" t of
+-- | Run an abstract JSONParser via Megaparsec.
+runParserViaMegaparsec :: (forall parser. JSONParser parser => parser a) -> Text.Text -> Either String a
+runParserViaMegaparsec p t =
+  case T.runParser (convertParserToMegaparsecParser p) "" t of
     Left r -> Left $ T.errorBundlePretty r
-    Right r -> Right r
+    Right k -> Right k
 
+-- | Parse an object for which 'FromJSON' is defined via Megaparsec.
+parseViaMegaparsec :: forall val. (FromJSON val) => Text.Text -> Either String val
+parseViaMegaparsec = runParserViaMegaparsec fromJSON

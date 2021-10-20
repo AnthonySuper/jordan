@@ -4,7 +4,7 @@ version:            0.1.0.0
 synopsis:           JSON with Structure
 
 -- A longer description of the package.
--- description:
+description: Jordan provides an abstract, inspectable interface for providing conversion to or from JSON.
 homepage:
 
 -- A URL where users can report bugs.

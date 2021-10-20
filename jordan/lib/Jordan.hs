@@ -6,7 +6,8 @@ module Jordan
       -- ** Concretely
       parseViaMegaparsec
     , parseViaAttoparsec
-    , attoparsecParser
+    , runParserViaAttoparsec
+    , runParserViaMegaparsec
       -- ** Abstractly
     , FromJSON (..)
     , JSONParser (..)
@@ -14,7 +15,7 @@ module Jordan
     , JSONTupleParser (..)
       -- *** Generically
     , gFromJSON
-    , FromJSONOptions(..)
+    , FromJSONOptions (..)
       -- * JSON Serialization
       -- ** Concretely
     , toJSONAsBuilder
@@ -26,12 +27,12 @@ module Jordan
     , JSONObjectSerializer (..)
       -- *** Generically
     , gToJSON
-    , ToJSONOptions(..)
+    , ToJSONOptions (..)
     ) where
 
-import Jordan.FromJSON.Attoparsec (attoparsecParser, parseViaAttoparsec)
+import Jordan.FromJSON.Attoparsec
 import Jordan.FromJSON.Class
-import Jordan.FromJSON.Megaparsec (parseViaMegaparsec)
+import Jordan.FromJSON.Megaparsec
 import Jordan.ToJSON.Builder (toJSONAsBuilder, toJSONViaBuilder)
 import Jordan.ToJSON.Class
 import Jordan.ToJSON.Text (toJSONText)

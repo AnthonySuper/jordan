@@ -2,12 +2,15 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 -- | Implementation of FromJSON parsers via Attoparsec.
 --
 -- This module does not construct intermediate data structures like maps or key-value lists,
 -- and instead uses permutation parsers in order to parse your data structure directly.
 module Jordan.FromJSON.Attoparsec
-    ( parseViaAttoparsec
+    ( convertParserToAttoparsecParser
+    , runParserViaAttoparsec
+    , parseViaAttoparsec
     , attoparsecParser
     ) where
 
@@ -259,6 +262,14 @@ instance JSONParser AttoparsecParser where
   parseBool = AttoparsecParser $ lexeme $
     (AP.string "true" $> True) <|> (AP.string "false" $> False)
   parseNull = AttoparsecParser $ lexeme (AP.string "null" $> ())
+
+-- | Convert an abstract JSON parser to an Attoparsec Parser.
+-- This function will skip leading whitespace.
+convertParserToAttoparsecParser :: (forall parser. JSONParser parser => parser a) -> AP.Parser a
+convertParserToAttoparsecParser = (skipSpace *>) .  runAttoparsecParser
+
+runParserViaAttoparsec :: (forall parser. JSONParser parser => parser a) -> ByteString -> Either String a
+runParserViaAttoparsec p = AP.parseOnly (convertParserToAttoparsecParser p)
 
 -- | Parse a ByteString via an Attoparsec Parser.
 parseViaAttoparsec :: (FromJSON val) => ByteString -> Either String val
