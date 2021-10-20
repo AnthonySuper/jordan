@@ -15,7 +15,7 @@ import Text.Megaparsec (parse)
 parse' a = parse a ""
 
 parseJ :: (FromJSON a) => Text -> Either ParseError a
-parseJ = parse' getParser
+parseJ = parse' megaparsecParser
 
 spec :: Spec
 spec = describe "megaparsec parsing" $ do
@@ -56,4 +56,4 @@ jsonTextSpec = describe "parseJSONText" $ do
 specialCaseSpec :: Spec
 specialCaseSpec = describe "special cases" $ do
   it "does not allow mismatched labels" $
-    parse (getParser @GenericSum) "" `shouldFailOn` mismatchType
+    parse (megaparsecParser @GenericSum) "" `shouldFailOn` mismatchType
