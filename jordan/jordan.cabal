@@ -31,6 +31,7 @@ common build-deps
     , parser-combinators
     , transformers
     , mtl
+    , containers
 
 library
     import: build-deps
@@ -43,6 +44,7 @@ library
       , Jordan.ToJSON.Text
       , Jordan.ToJSON.Builder
       , Jordan.Generic.Options
+      , Jordan.BothSides
       , Jordan
 
     -- Modules included in this library but not exported.

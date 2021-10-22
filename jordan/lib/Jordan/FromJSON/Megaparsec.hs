@@ -102,6 +102,15 @@ parseCharInText a = parseLit a <|> escaped a
     withEscaped a@[_,_,_] = "\\u0" <> a
     withEscaped r = "\\u" <> r
 
+parseDictField
+  :: Parser a
+  -> Parser (Text.Text, a)
+parseDictField valParser = do
+  key <- parseJSONText
+  labelSep
+  val <- valParser
+  pure (key, val)
+
 parseObjectField
   :: Text.Text
   -> Parser a
@@ -221,6 +230,11 @@ instance JSONParser MegaparsecParser where
   parseObjectStrict name p = MegaparsecParser $ T.label (Text.unpack name <> " object") $ do
     lexeme $ Char.char '{'
     r <- wrapEffect empty comma $ getObjectParser p
+    lexeme $ Char.char '}'
+    pure r
+  parseDictionary valParser = MegaparsecParser $ T.label "dictionary" $ do
+    lexeme $ Char.char '{'
+    r <- parseDictField (getMegaparsecParser valParser) `sepBy` comma
     lexeme $ Char.char '}'
     pure r
   parseTuple p = MegaparsecParser $ do

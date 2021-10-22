@@ -21,6 +21,7 @@ module Jordan.FromJSON.Class
     where
 
 import Control.Applicative (Alternative(..))
+import qualified Data.Map.Strict as Map
 import Data.Proxy (Proxy(..))
 import Data.Scientific (Scientific)
 import qualified Data.Text as T
@@ -84,6 +85,11 @@ class (Functor f, forall a. Monoid (f a)) => JSONParser f where
     -> (forall objectParser. JSONObjectParser objectParser => objectParser a)
     -> f a
   parseObjectStrict = parseObject
+  -- | Parse a dictionary of key-value pairs.
+  parseDictionary
+    :: (forall jsonParser. JSONParser jsonParser => jsonParser a)
+    -> f [(T.Text, a)]
+
   -- | Parse a text field.
   parseText
     :: f T.Text
@@ -148,6 +154,9 @@ instance FromJSON T.Text where
 
 instance FromJSON Int where
   fromJSON = fmap round parseNumber
+
+instance FromJSON a => FromJSON (Map.Map T.Text a) where
+  fromJSON = foldMap (uncurry Map.singleton) <$> parseDictionary fromJSON
 
 data FromJSONOptions
   = FromJSONOptions

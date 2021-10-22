@@ -4,6 +4,7 @@ module Main
     ( main
     ) where
 
+import qualified Data.Map as Map
 import Data.OpenApi.Declare
 import Data.OpenApi.Internal
 import Data.OpenApi.Internal.Utils (encodePretty)
@@ -23,7 +24,7 @@ data Person
   } deriving (Show, Generic)
 
 data Managership
-  = Managership { manager :: Person, underlings :: [Managership] }
+  = Managership { manager :: Person, underlings :: [Managership], feelings :: Map.Map T.Text T.Text }
   deriving (Show, Generic)
 
 data Rank
@@ -59,7 +60,7 @@ instance FromJSON File where
 instance FromJSON Directory where
 
 declared :: Declare (Definitions Schema) Schema
-declared = fmap _namedSchemaSchema (getToNamed (Proxy :: Proxy FileEntry))
+declared = fmap _namedSchemaSchema (getFromNamed (Proxy :: Proxy Managership))
 
 main :: IO ()
 main = TIO.putStrLn $ decodeUtf8 $ encodePretty $ runDeclare declared mempty

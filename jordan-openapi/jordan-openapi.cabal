@@ -26,6 +26,7 @@ common build-deps
     , text
     , bytestring
     , optics-core
+    , containers
     , insert-ordered-containers
     , aeson
     , contravariant

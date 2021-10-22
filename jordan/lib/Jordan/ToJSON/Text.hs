@@ -11,29 +11,43 @@ import Data.Functor.Contravariant.Divisible
 import Data.List (intersperse)
 import qualified Data.Scientific as Sci
 import Data.Semigroup (Endo(..))
+import Data.String (IsString(..))
 import qualified Data.Text as T
 import Data.Void (absurd)
 import Jordan.ToJSON.Class
 
-newtype TextObject a
-  = TextObject { runTextObject :: a -> (T.Text -> T.Text) }
-  deriving (Semigroup, Monoid) via (a -> Endo T.Text)
+data TextComma
+  = Written (T.Text -> T.Text)
+  | Empty
 
-instance Contravariant TextObject where
-  contramap f (TextObject s) = TextObject (s . f)
+runWritten :: TextComma -> T.Text -> T.Text
+runWritten Empty = id
+runWritten (Written f) = f
 
-instance Divisible TextObject where
-  conquer = TextObject $ const mempty
-  divide div (TextObject sb) (TextObject sc) = TextObject $ \arg ->
-    let (b, c) = div arg in
-        sb b . (", " <>) . sc c
+instance IsString TextComma where
+  fromString s = Written (<> T.pack s)
 
-instance Decidable TextObject where
-  lose f = TextObject $ \a -> absurd (f a)
-  choose f (TextObject sb) (TextObject sc) = TextObject $ \arg ->
-    case f arg of
-      Left b  -> sb b
-      Right c -> sc c
+instance Semigroup TextComma where
+  Empty <> a = a
+  a <> Empty = a
+  (Written f) <> (Written f') = Written (f . (", " <>) . f')
+
+instance Monoid TextComma where
+  mempty = Empty
+
+newtype CommaBuilder v = CommaBuilder { runCommaBuilder :: v -> TextComma }
+  deriving (Semigroup, Monoid) via (v -> TextComma)
+
+runCommaBuilder' :: CommaBuilder v -> v -> T.Text -> T.Text
+runCommaBuilder' (CommaBuilder f) = runWritten . f
+
+instance Contravariant CommaBuilder where
+  contramap f (CommaBuilder v) = CommaBuilder (v . f)
+
+instance Divisible CommaBuilder where
+  conquer = CommaBuilder (const Empty)
+  divide d (CommaBuilder b) (CommaBuilder c) = CommaBuilder $ \a ->
+    let (b', c') = d a in b b' <> c c'
 
 newtype TextArray v = TextArray { runTextArray :: v -> ([T.Text] -> [T.Text]) }
   deriving (Semigroup, Monoid) via (v -> Endo [T.Text])
@@ -53,15 +67,15 @@ instance Decidable TextArray where
       Left b'  -> b b'
       Right c' -> c c'
 
+instance JSONTupleSerializer CommaBuilder where
+  writeItem f = CommaBuilder $ Written . runJSONText f
+
+instance JSONObjectSerializer CommaBuilder where
+  writeField t s = CommaBuilder $ \arg ->
+    Written (quoteString t . (": " <> ) . runJSONText s arg)
+
 instance JSONTupleSerializer TextArray where
   writeItem f = TextArray $ \a -> ([runJSONText f a ""] <>)
-
-instance JSONObjectSerializer TextObject where
-  writeField t s = TextObject $ \arg ->
-    quoteString t . (": " <>) . runJSONText s arg
-
-instance JSONTupleSerializer TextObject where
-  writeItem f = TextObject $ \a -> runJSONText f a
 
 newtype JSONText a
   = JSONText { runJSONText :: a -> (T.Text -> T.Text) }
@@ -113,12 +127,15 @@ instance JSONSerializer JSONText where
   serializeTextConstant t = JSONText $ const $ quoteString t
   serializeNumber = JSONText $ \n ->
     ((T.pack $ Sci.formatScientific Sci.Generic Nothing n) <>)
+  serializeDictionary (JSONText serItem) = JSONText $ \n ->
+    ("{" <>) . keys n . ("}" <>)
+      where
+        keys v = runWritten $ foldMap (\(k, v) -> Written $ quoteString k . (": " <> ) . serItem v) v
   serializeBool = JSONText $ \a -> ((if a then "true" else "false") <>)
   serializeObject n obj = JSONText $ \arg ->
-    ("{" <>) . runTextObject obj arg . ("}" <>)
-  serializeTuple obj = JSONText $ \a ->
-    let ran = runTextArray obj a [] in
-        (("[" <> mconcat (intersperse ", " ran) <> "]") <>)
+    ("{" <>) . runCommaBuilder' obj arg . ("}" <>)
+  serializeTuple obj = JSONText $ \arg ->
+    ("[" <>) . runCommaBuilder' obj arg . ("}" <>)
   serializeArray = JSONText $ \a -> ("[" <>) . sArray (runJSONText toJSON) a . (<> "]")
 
 toJSONText :: (ToJSON a) => a -> T.Text

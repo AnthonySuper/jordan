@@ -13,6 +13,7 @@ module Jordan.ToJSON.Class
 
 import Data.Functor.Contravariant
 import Data.Functor.Contravariant.Divisible
+import qualified Data.Map.Strict as Map
 import Data.Scientific (Scientific)
 import qualified Data.Scientific as Sci
 import qualified Data.Semigroup as Semi
@@ -74,6 +75,10 @@ class (Selectable f) => JSONSerializer f where
     -- ^ How to serialize the object.
     -- The forall here keeps things abstract: you are only allowed to use the methods of 'JSONObjectSerializer' here.
     -> f a
+  serializeDictionary
+    :: (Foldable t)
+    => (forall jsonSerializer. JSONSerializer jsonSerializer => jsonSerializer a)
+    -> f (t (Text, a))
   serializeText
     :: f Text
   -- | Serialize some text constant.
@@ -173,6 +178,9 @@ instance (ToJSON a) => ToJSON (Semi.Sum a) where
 
 instance (ToJSON a) => ToJSON (Semi.Product a) where
   toJSON = contramap Semi.getProduct toJSON
+
+instance (ToJSON a) => ToJSON (Map.Map Text a) where
+  toJSON = contramap Map.toList $ serializeDictionary toJSON
 
 data ToJSONOptions
   = ToJSONOptions

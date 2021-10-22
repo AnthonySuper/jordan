@@ -162,6 +162,9 @@ endObject
   $ void
   $ AP.word8 125
 
+inObjectBraces :: AP.Parser a -> AP.Parser a
+inObjectBraces interior = startObject *> interior <* endObject
+
 startArray :: AP.Parser ()
 startArray
   = label "array starting brace ('[')"
@@ -218,6 +221,15 @@ parseObjectField t f = do
   labelSep
   lexeme f
 
+parseDictField
+  :: AP.Parser a
+  -> AP.Parser (Text.Text, a)
+parseDictField p = do
+  key <- parseJSONText
+  labelSep
+  val <- p
+  pure (key, val)
+
 instance JSONObjectParser ObjectParser where
   parseFieldWith label
     = ObjectParser
@@ -235,12 +247,12 @@ instance JSONTupleParser ArrayParser where
   consumeItemWith = ArrayParser . runAttoparsecParser
 
 instance JSONParser AttoparsecParser where
-  parseObject _ p = AttoparsecParser $ do
-    startObject
+  parseObject _ p = AttoparsecParser $ inObjectBraces $ do
     r <- wrapEffect parseAnyField comma $ runObjectParser p
     label "junk object fields at the end of a parsed object" $ many junkFieldAtEnd
-    endObject
     pure r
+  parseDictionary parse = AttoparsecParser $ inObjectBraces $ do
+    parseDictField (runAttoparsecParser parse) `AP.sepBy` comma
   parseTextConstant c = AttoparsecParser (objectKey c <?> "text constant" <> Text.unpack c)
   parseText = AttoparsecParser parseJSONText
   parseNumber = AttoparsecParser number

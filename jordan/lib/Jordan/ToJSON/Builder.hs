@@ -42,6 +42,10 @@ instance Semigroup CommaSep where
 instance Monoid CommaSep where
   mempty = Empty
 
+runCommaSep :: CommaSep -> Builder
+runCommaSep Empty = ""
+runCommaSep (Written w) = w
+
 newtype JSONCommaBuilder a
   = JSONCommaBuilder { runCommaBuilder :: a -> CommaSep }
 
@@ -72,6 +76,9 @@ escapeAscii =
 -- Mostly stolen shamelessly from Aeson.
 writeQuotedString :: Text -> Builder
 writeQuotedString t = "\"" <> encodeUtf8BuilderEscaped escapeAscii t <> "\""
+
+writeKV :: (a -> Builder) -> Text -> a -> Builder
+writeKV map k v = writeQuotedString k <> ": " <> map v
 
 instance Contravariant JSONCommaBuilder where
   contramap f (JSONCommaBuilder a) = JSONCommaBuilder $ a . f
@@ -105,6 +112,8 @@ instance JSONSerializer JSONBuilder where
     case f a of
       Written bu -> "[" <> bu <> "]"
       Empty -> "[]"
+  serializeDictionary (JSONBuilder t) = JSONBuilder $ \a ->
+    "{" <> runCommaSep (foldMap (\(k,v) -> Written (writeKV t k v)) a) <> "}"
   serializeText = JSONBuilder $ \t -> writeQuotedString t
   serializeTextConstant = JSONBuilder . const . writeQuotedString
   serializeNumber = JSONBuilder $ \a -> scientificBuilder a

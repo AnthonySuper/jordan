@@ -147,6 +147,12 @@ instance JSONParser JSONSchema where
   parseObject n f = JSONSchema $ do
     d <- getObjectSchema f
     pure $ NamedSchema (Just n) d
+  parseDictionary inner = JSONSchema $ do
+    r <- getRefDef (getJSONSchema inner)
+    pure $ unnamed $
+      ( (#_schemaType ?~ OpenApiObject)
+      . (#_schemaAdditionalProperties ?~ AdditionalPropertiesSchema r)
+      ) mempty
   parseTuple parser = JSONSchema $ do
     items <- getTupleSchema parser
     pure $
