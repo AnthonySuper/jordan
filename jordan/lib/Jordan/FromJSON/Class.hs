@@ -21,9 +21,14 @@ module Jordan.FromJSON.Class
     where
 
 import Control.Applicative (Alternative(..))
+import Data.Functor (($>))
 import qualified Data.Map.Strict as Map
+import qualified Data.Monoid as Monoid
 import Data.Proxy (Proxy(..))
+import qualified Data.Ratio as Ratio
 import Data.Scientific (Scientific)
+import qualified Data.Semigroup as Semigroup
+import qualified Data.Set as Set
 import qualified Data.Text as T
 import Data.Typeable
 import GHC.Generics
@@ -139,6 +144,9 @@ instance FromJSON () where
 instance {-# OVERLAPPABLE #-} (FromJSON a) => FromJSON [a] where
   fromJSON = parseArray
 
+instance {-# OVERLAPPING #-} FromJSON String where
+  fromJSON = T.unpack <$> parseText
+
 instance (FromJSON a) => FromJSON (Maybe a) where
   fromJSON = (Nothing <$ parseNull) <> (Just <$> fromJSON)
 
@@ -154,6 +162,68 @@ instance FromJSON T.Text where
 
 instance FromJSON Int where
   fromJSON = fmap round parseNumber
+
+instance FromJSON Float where
+  fromJSON = realToFrac <$> parseNumber
+
+instance FromJSON Double where
+  fromJSON = realToFrac <$> parseNumber
+
+instance FromJSON Integer where
+  fromJSON = fmap round parseNumber
+
+instance FromJSON Scientific where
+  fromJSON = parseNumber
+
+instance forall a. (Integral a, FromJSON a, Typeable a) => FromJSON (Ratio.Ratio a) where
+  fromJSON = parseObject objName $
+    (Ratio.%) <$> parseField "num" <*> parseField "denom"
+      where
+        objName = T.pack $ tyName <> ".Ratio"
+        tyName = (tyConModule <> const "." <> tyConName) $ typeRepTyCon $ typeRep (Proxy :: Proxy a)
+
+instance FromJSON a => FromJSON (Monoid.Dual a) where
+  fromJSON = Monoid.Dual <$> fromJSON
+
+instance FromJSON Monoid.All where
+  fromJSON = Monoid.All <$> parseBool
+
+instance FromJSON Monoid.Any where
+  fromJSON = Monoid.Any <$> parseBool
+
+instance FromJSON a => FromJSON (Monoid.Sum a) where
+  fromJSON = Monoid.Sum <$> fromJSON
+
+instance FromJSON a => FromJSON (Monoid.Product a) where
+  fromJSON = Monoid.Product <$> fromJSON
+
+instance FromJSON a => FromJSON (Monoid.First a) where
+  fromJSON = Monoid.First <$> ((parseNull $> Nothing) <> (Just <$> fromJSON))
+
+instance FromJSON a => FromJSON (Monoid.Last a) where
+  fromJSON = Monoid.Last <$> ((parseNull $> Nothing) <> (Just <$> fromJSON))
+
+instance FromJSON (f a) => FromJSON (Monoid.Alt f a) where
+  fromJSON = Monoid.Alt <$> fromJSON
+
+instance FromJSON (f a) => FromJSON (Monoid.Ap f a) where
+  fromJSON = Monoid.Ap <$> fromJSON
+
+instance FromJSON a => FromJSON (Semigroup.Min a) where
+  fromJSON = Semigroup.Min <$> fromJSON
+
+instance FromJSON a => FromJSON (Semigroup.Max a) where
+  fromJSON = Semigroup.Max <$> fromJSON
+
+instance FromJSON a => FromJSON (Semigroup.First a) where
+  fromJSON = Semigroup.First <$> fromJSON
+
+instance FromJSON a => FromJSON (Semigroup.Last a) where
+  fromJSON = Semigroup.Last <$> fromJSON
+
+-- containers package
+instance (FromJSON a, Ord a) => FromJSON (Set.Set a) where
+  fromJSON = Set.fromList <$> fromJSON
 
 instance FromJSON a => FromJSON (Map.Map T.Text a) where
   fromJSON = foldMap (uncurry Map.singleton) <$> parseDictionary fromJSON

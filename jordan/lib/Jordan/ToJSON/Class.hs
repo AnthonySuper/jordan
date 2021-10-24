@@ -14,6 +14,7 @@ module Jordan.ToJSON.Class
 import Data.Functor.Contravariant
 import Data.Functor.Contravariant.Divisible
 import qualified Data.Map.Strict as Map
+import qualified Data.Ratio as Ratio
 import Data.Scientific (Scientific)
 import qualified Data.Scientific as Sci
 import qualified Data.Semigroup as Semi
@@ -151,6 +152,15 @@ instance ToJSON Double where
 
 instance {-# OVERLAPPING #-} ToJSON String where
   toJSON = contramap T.pack serializeText
+
+instance forall a. (ToJSON a, Typeable a) => ToJSON (Ratio.Ratio a) where
+  toJSON = serializeObject objName $
+    divide divider (writeField "num" toJSON) (writeField "denom" toJSON)
+    where
+        divider :: Ratio.Ratio a -> (a,a)
+        divider = (,) <$> Ratio.numerator <*> Ratio.denominator
+        objName = T.pack $ tyName <> ".Ratio"
+        tyName = (tyConModule <> const "." <> tyConName) $ typeRepTyCon $ typeRep (Proxy :: Proxy a)
 
 instance (ToJSON a) => ToJSON (Semi.Min a) where
   toJSON = contramap Semi.getMin toJSON

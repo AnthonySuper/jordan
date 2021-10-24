@@ -44,7 +44,6 @@ library
       , Jordan.ToJSON.Text
       , Jordan.ToJSON.Builder
       , Jordan.Generic.Options
-      , Jordan.BothSides
       , Jordan
 
     -- Modules included in this library but not exported.
