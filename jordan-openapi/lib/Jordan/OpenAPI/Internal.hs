@@ -211,6 +211,12 @@ instance JSONSerializer JSONSchema where
   serializeText = parseText
   serializeBool = parseBool
   serializeNumber = parseNumber
+  serializeDictionary ser = JSONSchema $ do
+    r <- getRefDef (getJSONSchema ser)
+    pure $ unnamed $
+      ( (#_schemaType ?~ OpenApiObject)
+      . (#_schemaAdditionalProperties ?~ AdditionalPropertiesSchema r)
+      ) mempty
   serializeNull =
     case parseNull of
       JSONSchema a -> JSONSchema a

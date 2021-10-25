@@ -8,6 +8,8 @@ module Jordan
     , parseViaAttoparsec
     , runParserViaAttoparsec
     , runParserViaMegaparsec
+    , attoparsecParser
+    , megaparsecParser
       -- ** Abstractly
     , FromJSON (..)
     , JSONParser (..)
