@@ -82,7 +82,7 @@ quotation :: AP.Parser ()
 quotation = label "quotation mark" $ void $ AP.word8 34
 
 parseJSONText :: AP.Parser Text.Text
-parseJSONText = lexeme $ do
+parseJSONText = label "JSON text" $ do
   quotation
   innerText
 
@@ -97,16 +97,31 @@ innerText = do
       pure $ decodeUtf8 chunk
     Just 92 -> do
       AP.anyWord8
-      r <- parseEscape
+      r <- label "escape value" parseEscape
       rest <- innerText
       pure $ decodeUtf8 chunk <> r <> rest
     Just _ -> fail "IMPOSSIBLE"
 
 parseEscape :: AP.Parser Text.Text
-parseEscape = backslash <|> quote <|> escaped
+parseEscape
+  = quote
+  <|> backslash
+  <|> solidus
+  <|> backspace
+  <|> formfeed
+  <|> linefeed
+  <|> carriage
+  <|> tab
+  <|> escaped
   where
     backslash = AP.string "\\" $> "\\"
     quote = AP.string "\"" $> "\""
+    solidus = AP.string "/" $> "/"
+    backspace = AP.string "b" $> "\b"
+    formfeed = AP.string "f" $> "\f"
+    linefeed = AP.string "n" $> "\n"
+    carriage = AP.string "r" $> "\r"
+    tab = AP.string "t" $> "\t"
     escaped = do
       AP.string "u"
       a <- parseHexDigit

@@ -2,6 +2,7 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -196,11 +197,12 @@ data ToJSONOptions
   = ToJSONOptions
   { toJSONEncodeSums :: SumTypeEncoding
   , toJSONBaseName :: String
+  , toJSONRenderEnum :: String -> String
   }
 
 defaultToJSONOptions :: ToJSONOptions
 defaultToJSONOptions
-  = ToJSONOptions TagInField ""
+  = ToJSONOptions TagInField "" id
 
 class GToJSON v where
   gToJSON :: (JSONSerializer s) => ToJSONOptions -> s (v a)
@@ -216,46 +218,48 @@ instance (GToJSON f, Datatype t) => GToJSON (D1 t f) where
       s :: D1 t f a
       s = undefined
 
+instance {-# OVERLAPS #-} (Constructor t) => GToJSON (PartOfSum (C1 t U1)) where
+  gToJSON opts = contramap getPartOfSum $ serializeTextConstant enumValue
+    where
+      enumValue = T.pack $ toJSONRenderEnum opts $ conName (undefined :: C1 t U1 f)
+
+instance {-# OVERLAPPABLE #-} (Constructor t, GToJSON (C1 t f)) => GToJSON (PartOfSum (C1 t f)) where
+  gToJSON opts = contramap getPartOfSum encoded
+    where
+      encoded = case toJSONEncodeSums opts of
+        TagVal -> tagged
+        TagInField -> field
+      field = serializeObject objName $
+        writeField cn (gToJSON opts)
+      tagged = serializeObject objName $
+        contramap ((),) $
+          divided
+            (writeField "key" $ serializeTextConstant cn)
+            (writeField "value" $ gToJSON opts)
+      objName = T.pack (toJSONBaseName opts) <> "." <> cn <> ".Output"
+      cn =  T.pack $ conName (undefined :: C1 t f a)
+
+sumToEither :: (l :+: r) a -> Either (l a) (r a)
+sumToEither f = case f of
+  L1 a -> Left a
+  R1 a -> Right a
+
+instance forall l r. (GToJSON (PartOfSum l), GToJSON (PartOfSum r)) => GToJSON (l :+: r) where
+  gToJSON :: forall f a. (JSONSerializer f) => ToJSONOptions -> f ((l :+: r) a)
+  gToJSON opts =
+    select
+      sumToEither
+      (contramap PartOfSum $ gToJSON opts)
+      (contramap PartOfSum $ gToJSON opts)
+
+instance (GToJSON (PartOfSum l), GToJSON (PartOfSum r)) => GToJSON (PartOfSum (l :+: r)) where
+  gToJSON opts = contramap getPartOfSum (gToJSON opts)
+
 instance (GToJSON s) => GToJSON (S1 whatever s) where
   gToJSON = contramap (\(M1 a) -> a) . gToJSON
 
 instance GToJSON V1 where
   gToJSON _ = giveUp (error "how the hell did you construct a void data type?")
-
-instance (GToJSON (C1 t f), GToJSON (C1 t' f'), Constructor t, Constructor t') => GToJSON (C1 t f :+: C1 t' f') where
-  gToJSON opts = select sel lhsTo rhsTo
-    where
-      sel (L1 f) = Left f
-      sel (R1 f) = Right f
-      lhsTo = case toJSONEncodeSums opts of
-        TagVal
-          -> serializeObject (dname lhsName)
-          $ contramap ((),)
-          $ divided
-            (writeField "key" $ serializeTextConstant lhsName)
-            (writeField "val" $ gToJSON opts)
-        TagInField
-          -> serializeObject (dname lhsName)
-          $ writeField lhsName
-          $ gToJSON opts
-      rhsTo = case toJSONEncodeSums opts of
-        TagVal
-          -> serializeObject (dname rhsName)
-          $ contramap ((),)
-          $ divided
-            (writeField "key" $ serializeTextConstant rhsName)
-            (writeField "val" $ gToJSON opts)
-        TagInField
-          -> serializeObject (dname rhsName)
-          $ writeField rhsName
-          $ gToJSON opts
-      dname side = T.pack (toJSONBaseName opts) <> "." <> side <> ".Output"
-      lhsName = T.pack $ conName lhs
-      lhs :: C1 t f a
-      lhs = undefined
-      rhsName = T.pack $ conName rhs
-      rhs :: C1 t' f' a
-      rhs = undefined
 
 class GToJSONObject v where
   gToJSONObject :: (JSONObjectSerializer f) => ToJSONOptions -> f (v a)

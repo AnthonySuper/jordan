@@ -232,11 +232,12 @@ data FromJSONOptions
   = FromJSONOptions
   { fromJSONEncodeSums :: SumTypeEncoding
   , fromJSONBaseName :: String
+  , convertEnum :: String -> String
   }
-  deriving (Show, Read, Eq, Ord, Generic)
+  deriving (Generic)
 
 defaultOptions :: FromJSONOptions
-defaultOptions = FromJSONOptions TagInField ""
+defaultOptions = FromJSONOptions TagInField "" id
 
 addName :: String -> FromJSONOptions -> FromJSONOptions
 addName s d = d { fromJSONBaseName = fromJSONBaseName d <> s }
@@ -274,36 +275,31 @@ instance {-# OVERLAPS #-} (Constructor t) => GFromJSON (C1 t U1) where
       c :: C1 t U1 f
       c = undefined
 
-instance {-# OVERLAPPABLE #-} (GFromJSON lhs, GFromJSON rhs) => GFromJSON (lhs :+: rhs) where
-  gFromJSON opts
-    = (L1 <$> gFromJSON opts)
-    <> (R1 <$> gFromJSON opts)
-
-instance {-# OVERLAPPABLE #-} forall t t' f f'. (GFromJSON (C1 t f), GFromJSON (C1 t' f'), Constructor t, Constructor t') => GFromJSON (C1 t f :+: C1 t' f') where
-  gFromJSON opts =
-    case fromJSONEncodeSums opts of
-      TagVal -> (L1 <$> leftTagged) <> (R1 <$> rightTagged)
-      TagInField -> (L1 <$> leftField) <> (R1 <$> rightField)
+instance {-# OVERLAPS #-} (Constructor t) => GFromJSON (PartOfSum (C1 t U1)) where
+  gFromJSON opts = PartOfSum (M1 U1) <$ parseTextConstant enumValue
     where
-      leftField :: (JSONParser p) => p (C1 t f a)
-      leftField = parseObjectStrict (objName lhsName) $ parseFieldWith lhsName (gFromJSON opts)
-      rightField :: (JSONParser p) => p (C1 t' f' a)
-      rightField = parseObjectStrict (objName rhsName) $ parseFieldWith rhsName (gFromJSON opts)
-      leftTagged
-        = parseObject (objName lhsName)
-        $ parseFieldWith "tag" (parseTextConstant lhsName)
+      enumValue = T.pack $ convertEnum opts $ conName (undefined :: C1 t U1 f)
+
+instance {-# OVERLAPPING #-} (GFromJSON (C1 t f), Constructor t) => GFromJSON (PartOfSum (C1 t f)) where
+  gFromJSON opts  = PartOfSum <$> encoded
+    where
+      encoded = case fromJSONEncodeSums opts of
+        TagVal -> tagged
+        TagInField -> field
+      tagged = parseObject (objName name) $
+        parseFieldWith "tag" (parseTextConstant name)
         *> parseFieldWith "val" (gFromJSON opts)
-      rightTagged
-        = parseObject (objName rhsName)
-        $ parseFieldWith "tag" (parseTextConstant rhsName)
-        *> parseFieldWith "val" (gFromJSON opts)
+      field = parseObject (objName name) $
+        parseFieldWith name (gFromJSON opts)
+      name = T.pack $ conName (undefined :: C1 t f a)
       objName a = T.pack (fromJSONBaseName opts <> ".") <> a <> ".Input"
-      lhsName = T.pack $ conName lhs
-      lhs :: C1 t f a
-      lhs = undefined
-      rhsName = T.pack $ conName rhs
-      rhs :: C1 t' f' a
-      rhs = undefined
+
+instance {-# OVERLAPS #-} (GFromJSON (PartOfSum l), GFromJSON (PartOfSum r)) => GFromJSON (l :+: r) where
+  gFromJSON opts =
+    (L1 . getPartOfSum <$> gFromJSON opts) <> (R1 . getPartOfSum <$> gFromJSON opts)
+
+instance (GFromJSON (PartOfSum l), GFromJSON (PartOfSum r)) => GFromJSON (PartOfSum (l :+: r)) where
+  gFromJSON opts = PartOfSum <$> gFromJSON opts
 
 instance {-# OVERLAPPING #-} (Constructor t, Constructor t') =>
   GFromJSON (C1 t U1 :+: C1 t' U1) where

@@ -142,11 +142,26 @@ innerText = do
     Just _ -> fail "IMPOSSIBLE"
 
 parseEscape :: Parser Text.Text
-parseEscape = backslash <|> quote <|> escaped
+parseEscape
+  = quote
+  <|> backslash
+  <|> solidus
+  <|> backspace
+  <|> formfeed
+  <|> linefeed
+  <|> carriage
+  <|> tab
+  <|> escapedUnicode
   where
     backslash = T.chunk "\\"
     quote = T.chunk "\""
-    escaped = T.label "unicode escape code" $ do
+    solidus = T.chunk "/" $> "/"
+    backspace = T.chunk "b" $> "\b"
+    formfeed = T.chunk "f" $> "\f"
+    linefeed = T.chunk "n" $> "\n"
+    carriage = T.chunk "r" $> "\r"
+    tab = T.chunk "t" $> "\t"
+    escapedUnicode = T.label "unicode escape code" $ do
       Char.char 'u'
       a <- parseHexDigit
       b <- parseHexDigit
@@ -187,7 +202,7 @@ consumeJunkValue
   <|> void parseJSONNull
 
 parseJSONNumber :: Parser Scientific
-parseJSONNumber = Lexer.signed empty Lexer.scientific
+parseJSONNumber = Lexer.signed (pure ()) Lexer.scientific
 
 parseJSONNull :: Parser ()
 parseJSONNull = void $ lexeme $ T.chunk "null"
@@ -222,14 +237,9 @@ instance JSONTupleParser ArrayParser where
 
 instance JSONParser MegaparsecParser where
   parseObject name p = MegaparsecParser $ T.label (Text.unpack name <> " object") $ do
-    lexeme $ Char.char '{'
+    T.label "object start" $ lexeme $ Char.char '{'
     r <- wrapEffect parseAnyField comma $ getObjectParser p
-    T.optional junkFieldsAtEnd
-    lexeme $ Char.char '}'
-    pure r
-  parseObjectStrict name p = MegaparsecParser $ T.label (Text.unpack name <> " object") $ do
-    lexeme $ Char.char '{'
-    r <- wrapEffect empty comma $ getObjectParser p
+    T.label "object end" $ T.optional junkFieldsAtEnd
     lexeme $ Char.char '}'
     pure r
   parseDictionary valParser = MegaparsecParser $ T.label "dictionary" $ do

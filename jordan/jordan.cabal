@@ -62,12 +62,15 @@ test-suite jordan-test
       , hspec-megaparsec
       , jordan
       , raw-strings-qq
+      , QuickCheck
+      , quickcheck-text
     other-modules:
         Jordan.FromJSON.MegaparsecSpec
       , Jordan.FromJSON.AttoparsecSpec
       , Jordan.SpecDefs
       , Jordan.ToJSON.TextSpec
       , Jordan.ToJSON.BuilderSpec
+      , Jordan.RoundTripSpec
     default-language: Haskell2010
     type:             exitcode-stdio-1.0
     hs-source-dirs:   test

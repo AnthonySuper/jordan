@@ -8,7 +8,6 @@ import Jordan.FromJSON.Class (FromJSON)
 import Jordan.SpecDefs (basicParsingSpec)
 import Test.Hspec (Spec, describe, it, shouldBe)
 
-
 spec :: Spec
 spec = describe "Jordan.FromJSON.Attoparsec" $ do
   basicParsingSpec $ \t v ->
