@@ -222,8 +222,10 @@ instance JSONSerializer JSONSchema where
       JSONSchema a -> JSONSchema a
   serializeTextConstant t = let (JSONSchema a) = parseTextConstant t in JSONSchema a
 
+-- | Get documentation for a type that implements FromJSON
 getFromNamed :: forall a. (FromJSON a) => Proxy a -> Declare (Definitions Schema) NamedSchema
 getFromNamed p = getJSONSchema (fromJSON :: JSONSchema a)
 
+-- | Get documentation for a type that implements ToJSON
 getToNamed :: forall a. (ToJSON a) => Proxy a -> Declare (Definitions Schema) NamedSchema
 getToNamed p = getJSONSchema (toJSON :: JSONSchema a)
