@@ -4,7 +4,20 @@ version:            0.1.0.0
 synopsis:           JSON with Structure
 
 -- A longer description of the package.
-description: Jordan provides an abstract, inspectable interface for providing conversion to or from JSON.
+description:
+  Jordan provides an abstract interface for converting to or from JSON.
+  This interface can be used to construct various parsers and serilaizers.
+  Because everything is kept abstract and inspectable, documentation can be
+  automatically generated as well.
+  .
+  Jordan's built-in parsers and serializers include variants that do not construct
+  intermediate datatypes, which can avoid some collision-based denial of service
+  attacks that have effected other libraries. They should also be more efficient
+  due to the need to avoid early conversion of types, although I have not measured
+  this.
+  .
+  Jordan is somewhat experimental but well-tested.
+
 homepage:
 
 -- A URL where users can report bugs.
