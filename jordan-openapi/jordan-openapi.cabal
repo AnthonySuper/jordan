@@ -52,5 +52,9 @@ test-suite jordan-openapi-test
     default-language: Haskell2010
     type:             exitcode-stdio-1.0
     hs-source-dirs:   test
-    main-is:          MyLibTest.hs
-    build-depends:    base ^>=4.14.1.0
+    main-is:          JordanOpenApiSpec.hs 
+    other-modules:
+        Jordan.OpenAPI.SpecDefs
+    build-depends:
+        base ^>=4.14.1.0
+      , hspec
