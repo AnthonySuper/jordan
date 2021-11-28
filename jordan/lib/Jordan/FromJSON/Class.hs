@@ -127,6 +127,13 @@ class (Functor f, forall a. Monoid (f a)) => JSONParser f where
   validateJSON
     :: f (Either T.Text a)
     -> f a
+  -- | Give a parser a unique name.
+  -- May be used for documentation.
+  nameParser
+    :: T.Text
+    -> f a
+    -> f a 
+  nameParser _ a = a
 
 -- | A class to provide the canonical way to parse a JSON.
 -- This class uses finally tagless tyle to keep the instructions for parsing abstract.

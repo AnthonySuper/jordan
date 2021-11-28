@@ -101,6 +101,14 @@ class (Selectable f) => JSONSerializer f where
   serializeArray
     :: (ToJSON a)
     => f [a]
+  -- | Give a name to a serializer.
+  -- Should be globally unique, if possible.
+  nameSerializer
+    :: Text
+    -> f a
+    -> f a
+  nameSerializer _ a = a
+
 
 -- | A class to provide the canonical way to encode a JSON.
 --

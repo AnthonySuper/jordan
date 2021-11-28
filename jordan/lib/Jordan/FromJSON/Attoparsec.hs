@@ -332,6 +332,8 @@ instance JSONParser AttoparsecParser where
   parseBool = AttoparsecParser $ lexeme $
     (AP.string "true" $> True) <|> (AP.string "false" $> False)
   parseNull = AttoparsecParser $ lexeme (AP.string "null" $> ())
+  nameParser l = \(AttoparsecParser a) -> AttoparsecParser $
+    label ("Parser '" <> Text.unpack l <> "'") a
 
 -- | Convert an abstract JSON parser to an Attoparsec Parser.
 -- This function will skip leading whitespace.
