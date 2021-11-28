@@ -41,6 +41,9 @@ class (Contravariant f) => Selectable f where
   -- | Pick one thing, or another, as long as you can serialize both options.
   select :: (arg -> Either lhs rhs) -> f lhs -> f rhs -> f arg
 
+selected :: (Selectable f) => f lhs -> f rhs -> f (Either lhs rhs)
+selected = select id
+
 -- | An abstract representation of how to serialize a JSON object.
 -- Since serializing is the exact opposite of parsing, we have to be
 -- 'Data.Functor.Contravariant.Decidable' instead of 'Control.Applicative.Alternative'.
