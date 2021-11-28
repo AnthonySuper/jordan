@@ -15,14 +15,19 @@ module Jordan.FromJSON.Attoparsec
     ) where
 
 import Control.Applicative (Alternative(..))
+import Control.Monad (void, when)
 import Data.Attoparsec.ByteString ((<?>))
+import qualified Data.Attoparsec.ByteString as A
 import qualified Data.Attoparsec.ByteString as AP
 import qualified Data.Attoparsec.ByteString.Char8 as CH
 import Data.ByteString (ByteString)
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Unsafe as B
 import Data.Char (chr, digitToInt, isControl, isHexDigit, ord)
 import Data.Functor (void, ($>))
 import Data.Monoid (Alt(..))
 import Data.Scientific (Scientific)
+import qualified Data.Scientific as Sci
 import qualified Data.Text as Text
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Jordan.FromJSON.Class
@@ -65,15 +70,18 @@ label :: String -> AP.Parser a -> AP.Parser a
 label l p = p <?> l
 
 parseAnyField :: AP.Parser ()
-parseAnyField = label "junk field" $ void $  do
+parseAnyField = label "ignored object field" $ void $ do
   lexeme parseJSONText
   labelSep
   lexeme anyDatum
 
-junkFieldAtEnd :: AP.Parser ()
-junkFieldAtEnd = void $ do
-  comma
-  parseAnyField `AP.sepBy` comma
+objectEndWithJunk :: AP.Parser ()
+objectEndWithJunk = endObject <|> junkFieldAndEnd
+  where
+    junkFieldAndEnd = void $ do
+      comma
+      label "ignored extra field at object end" parseAnyField
+      objectEndWithJunk
 
 comma :: AP.Parser ()
 comma = label "comma character" $ void $ lexeme (AP.string ",")
@@ -86,9 +94,18 @@ parseJSONText = label "JSON text" $ do
   quotation
   innerText
 
+-- | A parser for a JSON text value that skips its input.
+-- Avoids doing UTF-8 Decoding.
+parseJunkText :: AP.Parser ()
+parseJunkText = label "Ignored JSON Text Literal" $ do
+  quotation
+  junkInnerText
+
+-- | Parses the bit of a JSON string after the quotation.
 innerText :: AP.Parser Text.Text
 innerText = do
-  chunk <- AP.takeWhile $ \char -> char /= 92 && char /= 34
+  chunk <- label "Skipped text body" $
+    AP.takeWhile $ \char -> char /= 92 && char /= 34
   l <- AP.peekWord8
   case l of
     Nothing -> fail "string without end"
@@ -100,7 +117,22 @@ innerText = do
       r <- label "escape value" parseEscape
       rest <- innerText
       pure $ decodeUtf8 chunk <> r <> rest
-    Just _ -> fail "IMPOSSIBLE"
+    Just _ -> fail "Impossibe: Parsed until we parsed a '\\' or a '\"', yet next char was neither"
+
+junkInnerText :: AP.Parser ()
+junkInnerText = do
+  AP.skipWhile $ \char -> char /= 92 && char /= 34
+  l <- AP.peekWord8
+  case l of
+    Nothing -> fail "string without end"
+    Just 34 -> do
+      AP.anyWord8
+      pure ()
+    Just 93 -> do
+      AP.anyWord8
+      parseEscape
+      junkInnerText
+    Just _ -> fail "Impossible: Skipped until we parsed a '\\' or a '\"', yet next char was neither"
 
 parseEscape :: AP.Parser Text.Text
 parseEscape
@@ -114,15 +146,15 @@ parseEscape
   <|> tab
   <|> escaped
   where
-    backslash = AP.string "\\" $> "\\"
-    quote = AP.string "\"" $> "\""
-    solidus = AP.string "/" $> "/"
-    backspace = AP.string "b" $> "\b"
-    formfeed = AP.string "f" $> "\f"
-    linefeed = AP.string "n" $> "\n"
-    carriage = AP.string "r" $> "\r"
-    tab = AP.string "t" $> "\t"
-    escaped = do
+    backslash = AP.string "\\" $> "\\" <?> "Backslash escape"
+    quote = AP.string "\"" $> "\"" <?> "Quote escape"
+    solidus = AP.string "/" $> "/" <?> "Solidus escape"
+    backspace = AP.string "b" $> "\b" <?> "Backspace escape"
+    formfeed = AP.string "f" $> "\f" <?> "Formfeed escape"
+    linefeed = AP.string "n" $> "\n" <?> "Linefeed escape"
+    carriage = AP.string "r" $> "\r" <?> "Carriage escape"
+    tab = AP.string "t" $> "\t" <?> "Tab escape"
+    escaped = label "UTF Code Escape" $ do
       AP.string "u"
       a <- parseHexDigit
       b <- parseHexDigit
@@ -203,7 +235,7 @@ anyDatum = lexeme inner
     inner
       = runAttoparsecParser parseNull
       <|> void (runAttoparsecParser parseBool)
-      <|> void (runAttoparsecParser parseText)
+      <|> parseJunkText
       <|> void (runAttoparsecParser parseNumber)
       <|> void (runAttoparsecParser parseBool)
       <|> anyObject
@@ -212,8 +244,11 @@ anyDatum = lexeme inner
 anyArray :: AP.Parser ()
 anyArray = label "ignored array" $ void $ do
   startArray
-  anyDatum `AP.sepBy` comma
-  endArray
+  endArray <|> junkItems
+    where
+      junkItems = do
+        anyDatum
+        endArray <|> (comma *> junkItems)
 
 number :: AP.Parser Scientific
 number = CH.scientific
@@ -221,11 +256,11 @@ number = CH.scientific
 anyObject :: AP.Parser ()
 anyObject = label "ignored object" $ void $ do
   startObject
-  flip AP.sepBy comma $ do
-    parseJSONText
-    labelSep
-    anyDatum
-  endObject
+  endObject <|> junkField
+    where
+      junkField = do
+        parseAnyField
+        endObject <|> (comma *> junkField)
 
 parseObjectField
   :: Text.Text
@@ -251,6 +286,7 @@ instance JSONObjectParser ObjectParser where
     . asPermutation
     . parseObjectField label
     . runAttoparsecParser
+  {-# INLINE parseFieldWith #-}
 
 newtype AttoparsecParser a
   = AttoparsecParser
@@ -262,15 +298,20 @@ instance JSONTupleParser ArrayParser where
   consumeItemWith = ArrayParser . runAttoparsecParser
 
 instance JSONParser AttoparsecParser where
-  parseObject _ p = AttoparsecParser $ inObjectBraces $ do
-    r <- wrapEffect parseAnyField comma $ runObjectParser p
-    label "junk object fields at the end of a parsed object" $ many junkFieldAtEnd
+  parseObject l p = AttoparsecParser $ label ("Object '" <> Text.unpack l <> "'") $ do
+    startObject
+    r <- wrapEffect (parseAnyField <?> "ignored field in the middle of an object") comma $ runObjectParser p
+    objectEndWithJunk
     pure r
+  {-# INLINE parseObject #-}
   parseDictionary parse = AttoparsecParser $ inObjectBraces $ do
     parseDictField (runAttoparsecParser parse) `AP.sepBy` comma
   parseTextConstant c = AttoparsecParser (objectKey c <?> "text constant" <> Text.unpack c)
+  {-# INLINE parseTextConstant #-}
   parseText = AttoparsecParser parseJSONText
+  {-# INLINE parseText #-}
   parseNumber = AttoparsecParser number
+  {-# INLINE parseNumber #-}
   validateJSON v = AttoparsecParser $ do
     r <- runAttoparsecParser v
     case r of
@@ -281,11 +322,13 @@ instance JSONParser AttoparsecParser where
     r <- runArrayParser ap
     lexeme $ AP.word8 93
     pure r
+  {-# INLINE parseTuple #-}
   parseArrayWith jp = AttoparsecParser $ do
     startArray
     r <- lexeme (runAttoparsecParser jp) `AP.sepBy` comma <?> "array items"
     endArray
     pure r
+  {-# INLINE parseArrayWith #-}
   parseBool = AttoparsecParser $ lexeme $
     (AP.string "true" $> True) <|> (AP.string "false" $> False)
   parseNull = AttoparsecParser $ lexeme (AP.string "null" $> ())

@@ -60,11 +60,14 @@ twoExtra = pack [r|
   {
     "ignore": [],
     "one": null,
-    "bad": {},
-    "another": [1,2,3],
-    "yetAgain": null,
+    "four": [],
+    "five": "test",
+    "seven": {},
+    "six": "why tho",
     "two": null,
-    "three": null }
+    "three": {},
+    "ignored": [1,2,3,4, { " foo "   : null }]
+  }
 |]
 
 twoScrambleExtra = pack [r|

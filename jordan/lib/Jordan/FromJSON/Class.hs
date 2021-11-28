@@ -48,6 +48,7 @@ class (Applicative f) => JSONObjectParser f where
     -- Note the forall in this type signature: you cannot have this be specific to
     -- any particular implementation of parsing, to keep the parsing of a JSON abstract.
     -> f a
+  {-# INLINE parseField #-}
   parseField
     :: (FromJSON v)
     => T.Text
@@ -135,6 +136,7 @@ class (Functor f, forall a. Monoid (f a)) => JSONParser f where
 -- In my opinion, at least.
 class FromJSON value where
   fromJSON :: (JSONParser f) => f value
+  {-# INLINE fromJSON #-}
   default fromJSON :: (Generic value, GFromJSON (Rep value)) => (JSONParser f => f value)
   fromJSON = to <$> gFromJSON @(Rep value) defaultOptions
 
