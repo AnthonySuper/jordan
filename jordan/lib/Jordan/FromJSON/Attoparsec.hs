@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
@@ -28,6 +29,7 @@ import Data.Functor (void, ($>))
 import Data.Monoid (Alt(..))
 import Data.Scientific (Scientific)
 import qualified Data.Scientific as Sci
+import qualified Data.Scientific as Scientific
 import qualified Data.Text as Text
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Jordan.FromJSON.Class
@@ -70,10 +72,10 @@ label :: String -> AP.Parser a -> AP.Parser a
 label l p = p <?> l
 
 parseAnyField :: AP.Parser ()
-parseAnyField = label "ignored object field" $ void $ do
-  lexeme parseJSONText
+parseAnyField = {-# SCC ignoredObjectField #-} label "ignored object field" $ void $ do
+  lexeme parseJunkText
   labelSep
-  lexeme anyDatum
+  anyDatum
 
 objectEndWithJunk :: AP.Parser ()
 objectEndWithJunk = endObject <|> junkFieldAndEnd
@@ -100,6 +102,7 @@ parseJunkText :: AP.Parser ()
 parseJunkText = label "Ignored JSON Text Literal" $ do
   quotation
   junkInnerText
+{-# INLINE parseJunkText #-}
 
 -- | Parses the bit of a JSON string after the quotation.
 innerText :: AP.Parser Text.Text
@@ -120,19 +123,20 @@ innerText = do
     Just _ -> fail "Impossibe: Parsed until we parsed a '\\' or a '\"', yet next char was neither"
 
 junkInnerText :: AP.Parser ()
-junkInnerText = do
+junkInnerText = {-# SCC ignoredTextBetweenQuotes #-} do
   AP.skipWhile $ \char -> char /= 92 && char /= 34
-  l <- AP.peekWord8
+  !l <- AP.peekWord8
   case l of
     Nothing -> fail "string without end"
-    Just 34 -> do
-      AP.anyWord8
-      pure ()
+    Just 34 -> AP.anyWord8 $> ()
     Just 93 -> do
       AP.anyWord8
       parseEscape
+      -- Yes we could save a miniscule amount of time by replacing this with an "ignoring" version.
+      -- However, laziness means that we probably don't save *that* much.
       junkInnerText
     Just _ -> fail "Impossible: Skipped until we parsed a '\\' or a '\"', yet next char was neither"
+{-# INLINE junkInnerText #-}
 
 parseEscape :: AP.Parser Text.Text
 parseEscape
@@ -191,7 +195,7 @@ parseCharInText a = parseLit a <|> escaped a
 objectKey :: Text.Text -> AP.Parser ()
 objectKey k = lexeme $ do
   quotation
-  Text.foldr (\c a -> parseCharInText c *> a) (pure ()) k
+  {-# SCC "knownObjectKeyBetweenQuotes" #-} Text.foldr (\c a -> parseCharInText c *> a) (pure ()) k
   quotation
   pure ()
 
@@ -230,16 +234,30 @@ labelSep :: AP.Parser ()
 labelSep = label "key-value separator (':')" $ void $ lexeme $ AP.string ":"
 
 anyDatum :: AP.Parser ()
-anyDatum = lexeme inner
-  where
-    inner
-      = runAttoparsecParser parseNull
-      <|> void (runAttoparsecParser parseBool)
-      <|> parseJunkText
-      <|> void (runAttoparsecParser parseNumber)
-      <|> void (runAttoparsecParser parseBool)
-      <|> anyObject
-      <|> anyArray
+anyDatum = lexeme $ {-# SCC "ignoredJSONValue" #-} do
+  t <- AP.peekWord8
+  case t of
+    Just 102 -> void $ AP.string "false"
+    Just 110 -> void $ AP.string "null"
+    Just 116 -> void $ AP.string "true"
+    Just 123 -> anyObject
+    Just 34 -> parseJunkText
+    Just 43 -> parseJunkNumber
+    Just 45 -> parseJunkNumber
+    Just 48 -> parseJunkNumber
+    Just 49 -> parseJunkNumber
+    Just 50 -> parseJunkNumber
+    Just 51 -> parseJunkNumber
+    Just 52 -> parseJunkNumber
+    Just 53 -> parseJunkNumber
+    Just 54 -> parseJunkNumber
+    Just 55 -> parseJunkNumber
+    Just 57 -> parseJunkNumber
+    Just 59 -> parseJunkNumber
+    Just 91 -> anyArray
+    Just _ -> fail "not a valid starter of any JSON value"
+    Nothing -> fail "empty input"
+{-# INLINE anyDatum #-}
 
 anyArray :: AP.Parser ()
 anyArray = label "ignored array" $ void $ do
@@ -250,11 +268,137 @@ anyArray = label "ignored array" $ void $ do
         anyDatum
         endArray <|> (comma *> junkItems)
 
+
+parseJunkDecimalZero :: AP.Parser ()
+parseJunkDecimalZero = do
+  let zero = 48
+  digits <- A.takeWhile1 CH.isDigit_w8
+  when (B.length digits > 1 && B.unsafeHead digits == zero) $
+    fail "leading zero"
+
+parseJunkExponent :: AP.Parser ()
+parseJunkExponent = label "junk exponent" $ do
+  A.satisfy (\ex -> ex == 101 || ex == 69)
+  A.skipWhile (\ch -> ch == 45 || ch == 43)
+  parseJunkDecimalZero
+
+parseJunkNumber :: AP.Parser ()
+parseJunkNumber = do
+  A.skipWhile (\ch -> ch == 45 || ch == 43)
+  parseJunkDecimalZero
+  -- skip decimal
+  dot <- A.peekWord8
+  case dot of
+    Just 46 -> void $ A.anyWord8 *> A.takeWhile1 CH.isDigit_w8
+    _ -> pure ()
+  parseJunkExponent <|> pure ()
+
+
+------ Scientific parser, copy/pasted from Aeson. ----
+
+
+-- (This parser was in turn copy-pasted itself from various soruces so this is kohser)
+
+-- A strict pair
+data SP = SP !Integer {-# UNPACK #-}!Int
+
+decimal0 :: AP.Parser Integer
+decimal0 = do
+  let zero = 48
+  digits <- A.takeWhile1 CH.isDigit_w8
+  if B.length digits > 1 && B.unsafeHead digits == zero
+    then fail "leading zero"
+    else return (bsToInteger digits)
+
+-- | Parse a JSON number.
+--
+-- This function is wholesale copy/pasted from Aeson.
+-- Thanks to them.
+scientific :: AP.Parser Scientific
+scientific = do
+  let minus = 45
+      plus  = 43
+  sign <- A.peekWord8'
+  let !positive = sign == plus || sign /= minus
+  when (sign == plus || sign == minus) $
+    void A.anyWord8
+
+  n <- decimal0
+
+  let f fracDigits = SP (B.foldl' step n fracDigits)
+                        (negate $ B.length fracDigits)
+      step a w = a * 10 + fromIntegral (w - 48)
+
+  dotty <- A.peekWord8
+  -- '.' -> ascii 46
+  SP c e <- case dotty of
+              Just 46 -> A.anyWord8 *> (f <$> A.takeWhile1 CH.isDigit_w8)
+              _       -> pure (SP n 0)
+
+  let !signedCoeff | positive  =  c
+                   | otherwise = -c
+
+  let littleE = 101
+      bigE    = 69
+  (A.satisfy (\ex -> ex == littleE || ex == bigE) *>
+      fmap (Scientific.scientific signedCoeff . (e +)) (CH.signed CH.decimal)) <|>
+    return (Scientific.scientific signedCoeff    e)
+{-# INLINE scientific #-}
+
+bsToInteger :: B.ByteString -> Integer
+bsToInteger bs
+    | l > 40    = valInteger 10 l [ fromIntegral (w - 48) | w <- B.unpack bs ]
+    | otherwise = bsToIntegerSimple bs
+  where
+    l = B.length bs
+
+bsToIntegerSimple :: B.ByteString -> Integer
+bsToIntegerSimple = B.foldl' step 0 where
+  step a b = a * 10 + fromIntegral (b - 48) -- 48 = '0'
+
+-- A sub-quadratic algorithm for Integer. Pairs of adjacent radix b
+-- digits are combined into a single radix b^2 digit. This process is
+-- repeated until we are left with a single digit. This algorithm
+-- performs well only on large inputs, so we use the simple algorithm
+-- for smaller inputs.
+valInteger :: Integer -> Int -> [Integer] -> Integer
+valInteger = go
+  where
+    go :: Integer -> Int -> [Integer] -> Integer
+    go _ _ []  = 0
+    go _ _ [d] = d
+    go b l ds
+        | l > 40 = b' `seq` go b' l' (combine b ds')
+        | otherwise = valSimple b ds
+      where
+        -- ensure that we have an even number of digits
+        -- before we call combine:
+        ds' = if even l then ds else 0 : ds
+        b' = b * b
+        l' = (l + 1) `quot` 2
+
+    combine b (d1 : d2 : ds) = d `seq` (d : combine b ds)
+      where
+        d = d1 * b + d2
+    combine _ []  = []
+    combine _ [_] = errorWithoutStackTrace "this should not happen"
+
+-- The following algorithm is only linear for types whose Num operations
+-- are in constant time.
+valSimple :: Integer -> [Integer] -> Integer
+valSimple base = go 0
+  where
+    go r [] = r
+    go r (d : ds) = r' `seq` go r' ds
+      where
+        r' = r * base + fromIntegral d
+
 number :: AP.Parser Scientific
-number = CH.scientific
+number = scientific
+{-# INLINE number #-}
 
 anyObject :: AP.Parser ()
-anyObject = label "ignored object" $ void $ do
+anyObject = {-# SCC ignoredJSONObject #-} label "ignored object" $ void $ do
   startObject
   endObject <|> junkField
     where
@@ -339,14 +483,18 @@ instance JSONParser AttoparsecParser where
 -- This function will skip leading whitespace.
 convertParserToAttoparsecParser :: (forall parser. JSONParser parser => parser a) -> AP.Parser a
 convertParserToAttoparsecParser = (skipSpace *>) .  runAttoparsecParser
+{-# INLINE convertParserToAttoparsecParser #-}
 
 runParserViaAttoparsec :: (forall parser. JSONParser parser => parser a) -> ByteString -> Either String a
 runParserViaAttoparsec p = AP.parseOnly (convertParserToAttoparsecParser p)
+{-# INLINE runParserViaAttoparsec #-}
 
 -- | Parse a ByteString via an Attoparsec Parser.
 parseViaAttoparsec :: (FromJSON val) => ByteString -> Either String val
 parseViaAttoparsec = AP.parseOnly (skipSpace *> runAttoparsecParser fromJSON)
+{-# INLINE parseViaAttoparsec #-}
 
 -- | Get an Attoparsec parser for a particular JSON-parsable value.
 attoparsecParser :: (FromJSON val) => AP.Parser val
 attoparsecParser = runAttoparsecParser fromJSON
+{-# INLINE attoparsecParser #-}
