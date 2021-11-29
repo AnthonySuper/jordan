@@ -30,11 +30,14 @@ module Jordan
       -- *** Generically
     , gToJSON
     , ToJSONOptions (..)
+      -- * Parsing or Serializing Arbitrary JSON
+    , JSONValue (..)
     ) where
 
 import Jordan.FromJSON.Attoparsec
 import Jordan.FromJSON.Class
 import Jordan.FromJSON.Megaparsec
+import Jordan.JSONValue
 import Jordan.ToJSON.Builder (toJSONAsBuilder, toJSONViaBuilder)
 import Jordan.ToJSON.Class
 import Jordan.ToJSON.Text (toJSONText)

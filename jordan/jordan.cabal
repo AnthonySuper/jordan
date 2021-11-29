@@ -50,6 +50,7 @@ library
       , Jordan.FromJSON.Megaparsec
       , Jordan.FromJSON.Attoparsec
       , Jordan.FromJSON.ParseInternal
+      , Jordan.JSONValue
       , Jordan.ToJSON.Class
       , Jordan.ToJSON.Text
       , Jordan.ToJSON.Builder
