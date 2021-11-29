@@ -192,10 +192,32 @@ parseCharInText a = parseLit a <|> escaped a
     withEscaped a@[_,_,_] = "\\u0" <> a
     withEscaped r = "\\u" <> r
 
+mustBeEscaped :: Char -> Bool
+mustBeEscaped = \case
+  '\\' -> True
+  '"' -> True
+  '/' -> True
+  '\b' -> True
+  '\f' -> True
+  '\n' -> True
+  '\r' -> True
+  '\t' -> True
+  _ -> False
+
+canParseDirectly :: Text.Text -> Bool
+canParseDirectly t = not $ Text.foldr (\c v -> v || mustBeEscaped c) False t
+
+parseTextBody :: Text.Text -> AP.Parser ()
+parseTextBody text
+  | canParseDirectly text = void (A.string (encodeUtf8 text)) <|> parseViaChars text
+  | otherwise = parseViaChars text
+
+parseViaChars = Text.foldr (\c a -> parseCharInText c *> a) (pure ())
+
 objectKey :: Text.Text -> AP.Parser ()
 objectKey k = lexeme $ do
   quotation
-  {-# SCC "knownObjectKeyBetweenQuotes" #-} Text.foldr (\c a -> parseCharInText c *> a) (pure ()) k
+  {-# SCC "knownObjectKeyBetweenQuotes" #-} parseTextBody k
   quotation
   pure ()
 

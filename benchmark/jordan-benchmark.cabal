@@ -25,12 +25,14 @@ common build-deps
     , bytestring
     , deepseq
     , text
+    , transformers 
+    , mtl
 
 library
     import: build-deps
     exposed-modules:
         Jordan.Benchmark.GeoJSON
-
+      , Jordan.Benchmark.OnlyWanted
     -- Modules included in this library but not exported.
     -- other-modules:
 

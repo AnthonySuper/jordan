@@ -9,7 +9,6 @@ module Jordan.Benchmark.GeoJSON
 
 import Control.DeepSeq
 import GHC.Generics
-
 import Data.Aeson ((.:))
 import qualified Data.Aeson as A
 import Data.Text (Text)
