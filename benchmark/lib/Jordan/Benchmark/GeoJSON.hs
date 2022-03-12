@@ -1,27 +1,31 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Jordan.Benchmark.GeoJSON
-    where
+{-# LANGUAGE NoMonomorphismRestriction #-}
 
+module Jordan.Benchmark.GeoJSON where
+
+import Control.Applicative (Alternative ((<|>)))
 import Control.DeepSeq
-import GHC.Generics
 import Data.Aeson ((.:))
 import qualified Data.Aeson as A
+import qualified Data.ByteString.Lazy as LBS
 import Data.Text (Text)
+import GHC.Generics
 import qualified Jordan as J
 
-data Point
-  = Point { x :: !Double, y :: !Double }
+data Point = Point {x :: Double, y :: Double}
   deriving (Show, Read, Eq, Ord, Generic)
   deriving anyclass (NFData)
 
 instance J.FromJSON Point where
-  fromJSON = J.parseTuple $
-    Point <$> J.consumeItem <*> J.consumeItem
+  fromJSON =
+    J.nameParser "GeoJSON.Point.Input" $
+      J.parseTuple $
+        Point <$> J.consumeItem <*> J.consumeItem
+  {-# INLINE fromJSON #-}
 
 instance A.FromJSON Point where
   parseJSON o = do
@@ -30,58 +34,118 @@ instance A.FromJSON Point where
       [x, y] -> pure $ Point x y
       _ -> fail "bad point"
 
-newtype LineString = LineString { getLineString :: [Point] }
+newtype LineString = LineString {getLineString :: [Point]}
   deriving (Show, Read, Eq, Ord, Generic)
-  deriving anyclass NFData
+  deriving anyclass (NFData)
 
 instance J.FromJSON LineString where
-  fromJSON = LineString <$> J.parseArray
+  fromJSON = J.nameParser "GeoJSON.LineString.Input" $ LineString <$> J.parseArray
+  {-# INLINE fromJSON #-}
 
 instance A.FromJSON LineString where
   parseJSON o = LineString <$> A.parseJSON o
+  {-# INLINE parseJSON #-}
 
-data Polygon
-  = Polygon
-  { boundary :: LineString
-  , hole :: Maybe LineString
-  } deriving (Show, Read, Eq, Ord, Generic)
-  deriving anyclass NFData
+data PolygonCoordinates = PolygonCoordinates
+  { boundary :: LineString,
+    holes :: [LineString]
+  }
+  deriving (Show, Read, Eq, Ord, Generic)
+  deriving anyclass (NFData)
+
+instance J.FromJSON PolygonCoordinates where
+  fromJSON =
+    J.nameParser "GeoJSON.Polygon.Coordinates" $
+      J.validateJSON $
+        mapCoords <$> J.fromJSON
+    where
+      mapCoords (x : xs) = Right (PolygonCoordinates x xs)
+      mapCoords [] = Left "Illegal empty polygon array"
+
+instance A.FromJSON PolygonCoordinates where
+  parseJSON o = do
+    res <- A.parseJSON o
+    case res of
+      (x : xs) -> pure $ PolygonCoordinates x xs
+      _ -> fail "Not enough stuff"
+
+newtype Polygon = Polygon
+  { getPolygon :: PolygonCoordinates
+  }
+  deriving (Show, Read, Eq, Ord, Generic)
+  deriving anyclass (NFData)
 
 instance J.FromJSON Polygon where
-  fromJSON = J.parseObject "GeoJSON.Polygon"
-    (J.parseFieldWith "type" (J.parseTextConstant "Polygon") *>
-      J.parseFieldWith "coordinates" (nohole <> hole))
-    where
-      nohole = J.parseTuple
-        (Polygon <$> J.consumeItem <*> pure Nothing)
-      hole = J.parseTuple
-        (Polygon <$> J.consumeItem <*> (Just <$> J.consumeItem))
+  fromJSON =
+    J.nameParser "GeoJSON.Polygon.Input" $
+      J.parseObject
+        ( J.parseFieldWith "type" (J.parseTextConstant "Polygon")
+            *> J.parseFieldWith "coordinates" (Polygon <$> J.fromJSON)
+        )
+  {-# INLINE fromJSON #-}
 
 instance A.FromJSON Polygon where
   parseJSON (A.Object o) = do
     (t :: Text) <- o .: "type"
     case t of
-      "Polygon" -> do
-        geom <- o .: "coordinates"
-        case geom of
-          [x] -> pure $ Polygon x Nothing
-          [x, h] -> pure $ Polygon x (Just h)
-          _ -> fail "bad parse"
-      _ -> fail "bad type"
-  parseJSON _ = fail "not an object"
+      "Polygon" -> Polygon <$> o .: "coordinates"
+      _ -> fail "not a polygon"
+  parseJSON _ = fail "not a polygon"
 
-
-newtype Feature
-  = Feature
-  { geometry :: Polygon }
+newtype MultiPolygon = MultiPolygon {polygons :: [Polygon]}
   deriving (Show, Read, Eq, Ord, Generic)
-  deriving anyclass NFData
+  deriving anyclass (NFData)
+
+instance J.FromJSON MultiPolygon where
+  fromJSON =
+    J.parseObject $
+      J.parseFieldWith "type" (J.parseTextConstant "MultiPolygon")
+        *> J.parseFieldWith "coordinates" (MultiPolygon . map Polygon <$> J.fromJSON)
+
+instance A.FromJSON MultiPolygon where
+  parseJSON (A.Object o) = do
+    (t :: Text) <- o .: "type"
+    case t of
+      "MultiPolygon" ->
+        MultiPolygon . map Polygon <$> o .: "coordinates"
+      _ -> fail "not a multipolygon"
+  parseJSON _ = fail "not a multipolygon"
+
+data Geometry
+  = GPoint Point
+  | GLineString LineString
+  | GPolygon Polygon
+  | GMultiPolygon MultiPolygon
+  deriving (Show, Read, Eq, Ord, Generic)
+  deriving anyclass (NFData)
+
+instance J.FromJSON Geometry where
+  fromJSON =
+    J.nameParser "GeoJSON.Geometry.Input" $
+      (GPoint <$> J.fromJSON)
+        <> (GLineString <$> J.fromJSON)
+        <> (GPolygon <$> J.fromJSON)
+        <> (GMultiPolygon <$> J.fromJSON)
+
+instance A.FromJSON Geometry where
+  parseJSON v =
+    (GPoint <$> A.parseJSON v)
+      <|> (GLineString <$> A.parseJSON v)
+      <|> (GPolygon <$> A.parseJSON v)
+      <|> (GMultiPolygon <$> A.parseJSON v)
+
+newtype Feature = Feature
+  {geometry :: Geometry}
+  deriving (Show, Read, Eq, Ord, Generic)
+  deriving anyclass (NFData)
 
 instance J.FromJSON Feature where
-  fromJSON
-    = J.parseObject "GeoJSON.Feature"
-    $ J.parseFieldWith "type" (J.parseTextConstant "Feature")
-    *> (Feature <$> J.parseField "geometry")
+  fromJSON =
+    J.nameParser "GeoJSON.Feature.Input" $
+      J.parseObject $
+        J.parseFieldWith "type" (J.parseTextConstant "Feature")
+          *> (Feature <$> J.parseField "geometry")
+  {-# INLINE fromJSON #-}
 
 instance A.FromJSON Feature where
   parseJSON (A.Object o) = do
@@ -91,21 +155,22 @@ instance A.FromJSON Feature where
       _ -> fail "bad type"
   parseJSON _ = fail "not an object"
 
-newtype FeatureCollection
-  = FeatureCollection { features :: [Feature] }
+newtype FeatureCollection = FeatureCollection {features :: [Feature]}
   deriving (Show, Read, Eq, Ord, Generic)
-  deriving anyclass NFData
+  deriving anyclass (NFData)
 
 instance J.FromJSON FeatureCollection where
-  fromJSON
-    = J.parseObject "GeoJSON.FeatureCollection"
-    $ J.parseFieldWith "type" (J.parseTextConstant "FeatureCollection")
-    *> (FeatureCollection <$> J.parseField "features")
+  fromJSON =
+    J.nameParser "GeoJSON.FeatureCollection.Input" $
+      J.parseObject $
+        J.parseFieldWith "type" (J.parseTextConstant "FeatureCollection")
+          *> (FeatureCollection <$> J.parseField "features")
+  {-# INLINE fromJSON #-}
 
 instance A.FromJSON FeatureCollection where
   parseJSON (A.Object o) = do
     (r :: Text) <- o .: "type"
     case r of
-      "FatureCollection" -> FeatureCollection <$> o .: "features"
+      "FeatureCollection" -> FeatureCollection <$> o .: "features"
       _ -> fail "wrong type"
   parseJSON _ = fail "not an object"

@@ -30,6 +30,8 @@ common build-deps
     , openapi3 >= 3.1.0 && <3.2
     , optics-core >= 0.4 && <0.5
     , text >= 1.2.4 && <1.3
+    , insert-ordered-containers
+    , http-types
 
 library
     import: build-deps
@@ -52,7 +54,7 @@ test-suite jordan-openapi-test
     default-language: Haskell2010
     type:             exitcode-stdio-1.0
     hs-source-dirs:   test
-    main-is:          JordanOpenApiSpec.hs 
+    main-is:          JordanOpenApiSpec.hs
     other-modules:
         Jordan.OpenAPI.SpecDefs
     build-depends:

@@ -2,7 +2,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeOperators #-}
-module Jordan.JSONValue
+module Jordan.Types.JSONValue
     ( JSONValue (..)
     ) where
 

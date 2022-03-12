@@ -14,9 +14,9 @@ data Person
   = Person
   { firstName :: T.Text
   , lastName :: T.Text
+  , age :: Int
   } deriving (Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
-
 
 data Managership
   = Managership
