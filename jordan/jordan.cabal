@@ -43,9 +43,7 @@ common build-deps
     , contravariant >= 1.5.5 && <1.6
     , parser-combinators >= 1.3.0 && < 1.4
     , deepseq >= 1.4 && <= 1.5
-    , transformers
-    , parallel
-    , ghc-prim
+    , ghc-prim >= 0.6.1 && < 0.7
 
 library
     import: build-deps

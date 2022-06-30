@@ -17,7 +17,7 @@ Let's say I have a Haskell datatype, which looks like this:
 data Person
   = Person
   { name :: Text
-  , age :: Int 
+  , age :: Int
   }
 ```
 
@@ -61,7 +61,6 @@ Note that the type of the *particular* parser or serializer is kept *abstract*.
 This means that we can plug in different implementations.
 By default, Jordan comes with the following:
 
-- A `megaparsec`-based parser that parses from text
 - An `attoparsec`-based parser that parses from a UTF-8 ByteString
-- A "text writer"-based serializer that serilaizes to text
 - A `Data.ByteString.Builder`-based serializer that serializes to a UTF-8 encoded JSON string
+- A parser that uses an unboxed sums scheme to quickly parse either a value *or* a report of what went wrong, assuming valid JSON is given.
