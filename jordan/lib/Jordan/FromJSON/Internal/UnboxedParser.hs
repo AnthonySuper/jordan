@@ -1,5 +1,6 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE MagicHash #-}
@@ -36,6 +37,15 @@ import qualified Jordan.Types.Internal.AccumE as AE
 import Jordan.Types.JSONError (JSONArrayError, JSONError, JSONObjectError)
 import System.IO.Unsafe
 
+#if __GLASGOW_HASKELL__ > 900
+-- | Type of Word8 in GHC prim land. On GHC > 9.0, this is its own type.
+type WordPrim = Word8#
+#elif __GLASGOW_HASKELL__ > 800
+-- | Type of word8 in GHC prim land.
+-- On the GHC 8 series, this is 'Word#'.
+type WordPrim = Word#
+#endif
+
 -- | Newtype wrapper around the state of an input.
 --
 -- This is just the offset into the buffer.
@@ -63,10 +73,13 @@ pattern InputRead {foreignPtr, addr, endOffset} = InputRead# (# foreignPtr, addr
 
 {-# COMPLETE InputRead #-}
 
+-- | Unboxed type similar to 'Jordan.Types.Internal.AccumE'.
 newtype AccumE err a = AccumE {getAccumE :: (# err| a #)}
 
+pattern AccumER :: a -> AccumE err a
 pattern AccumER a = AccumE (# | a #)
 
+pattern AccumEL :: err -> AccumE err a
 pattern AccumEL err = AccumE (# err | #)
 
 {-# COMPLETE AccumEL, AccumER #-}
@@ -371,7 +384,7 @@ specificWord w = orFail (cb <$> word)
 -- | Skip over while the callback returns true.
 --
 -- Unlifted version, probably use skipWord8
-skipWord8# :: (Word# -> Bool) -> Parser err ()
+skipWord8# :: (WordPrim -> Bool) -> Parser err ()
 skipWord8# cb =
   Parser $
     Parser# (skipWord8CB# cb)
@@ -384,7 +397,7 @@ skipWord8 cb = skipWord8# (\byte -> cb (W8# byte {- HLINT ignore "Avoid lambda" 
 
 -- | Private: callback used for skipWord8
 skipWord8CB# ::
-  (Word# -> Bool) ->
+  (WordPrim -> Bool) ->
   InputRead ->
   InputState ->
   State# RealWorld ->
@@ -419,12 +432,12 @@ skipWhitespaceCB env (InputState# input) s =
       | isTrue# (inputOffset ==# endOffset env) = (# s, inputOffset #)
       | otherwise =
         let (# s', word #) = readWord8OffAddr# (addr env) inputOffset s
-         in case word of
-              40## -> go (inputOffset +# 1#) s'
-              0x20## -> go (inputOffset +# 1#) s'
-              0x0A## -> go (inputOffset +# 1#) s'
-              0x0D## -> go (inputOffset +# 1#) s'
-              0x09## -> go (inputOffset +# 1#) s'
+         in case W8# word of
+              40 -> go (inputOffset +# 1#) s'
+              0x20 -> go (inputOffset +# 1#) s'
+              0x0A -> go (inputOffset +# 1#) s'
+              0x0D -> go (inputOffset +# 1#) s'
+              0x09 -> go (inputOffset +# 1#) s'
               _ -> (# s', inputOffset #)
     {-# INLINE go #-}
 {-# INLINE skipWhitespaceCB #-}

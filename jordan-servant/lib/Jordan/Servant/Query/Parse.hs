@@ -269,7 +269,7 @@ takeText =
     decodeUtf8' <$> takeElement
 
 instance JSONTupleParser JordanQueryParser where
-  consumeItemWith = id
+  consumeItemWith = \x -> x
 
 instance JSONParser JordanQueryParser where
   parseTuple (JordanQueryParser p) =

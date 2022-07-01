@@ -2,8 +2,10 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
@@ -13,6 +15,7 @@ module Jordan.Servant.Query.RoundtripSpec where
 import Control.Applicative
 import Control.Monad (guard)
 import Data.Attoparsec.ByteString (parseOnly)
+import Data.Coerce
 import Data.Functor.Contravariant
 import Data.Proxy
 import qualified Data.Text as T
@@ -44,16 +47,16 @@ instance FromJSON HomogenousCoord where
 
 instance ToJSON HomogenousCoord where
   toJSON =
-    serializeObject "" $
+    serializeObject $
       divide
         (\(HomogenousCoord x y z) -> (x, (y, z)))
-        (writeField "x" toJSON)
+        (serializeField "x")
         $ divide
           id
-          (writeField "y" toJSON)
+          (serializeField "y")
           $ contramap
             (\x -> if x == 0 then Nothing else Just x)
-            (writeJust "z" toJSON)
+            (serializeJust "z" toJSON)
 
 instance Arbitrary HomogenousCoord where
   arbitrary =
@@ -66,7 +69,13 @@ instance Arbitrary HomogenousCoord where
 
 newtype Coords = Coords {getCoords :: [HomogenousCoord]}
   deriving (Show, Read, Eq, Ord, Generic)
-  deriving (ToJSON, FromJSON, Arbitrary) via [HomogenousCoord]
+  deriving (Arbitrary) via [HomogenousCoord]
+
+instance FromJSON Coords where
+  fromJSON = fmap Coords fromJSON
+
+instance ToJSON Coords where
+  toJSON = contramap getCoords toJSON
 
 instance Arbitrary Color where
   arbitrary = arbitraryBoundedEnum

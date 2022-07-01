@@ -19,7 +19,7 @@ common build-deps
     , attoparsec >= 0.14.1 && <0.15
     , bytestring >= 0.10.8.1 && <0.12
     , contravariant >= 1.5.5 && <1.6
-    , jordan >= 0.1.0.0 && <0.2
+    , jordan >= 0.2.0.0 && <0.3
     , servant >= 0.18 && <0.20
     , text >= 1.2.3.0 && <1.3
     , scientific >= 0.3.7 && <0.4
@@ -31,6 +31,7 @@ common build-deps
     , lens
     , transformers
     , openapi3
+    , base
 
 -- A copyright notice.
 -- copyright:
@@ -47,13 +48,12 @@ library
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
-    build-depends:    base ^>=4.14.3.0
     hs-source-dirs:   lib
     default-language: Haskell2010
 
 test-suite jordan-servant-openapi-test
+    import: build-deps
     default-language: Haskell2010
     type:             exitcode-stdio-1.0
     hs-source-dirs:   test
     main-is:          MyLibTest.hs
-    build-depends:    base ^>=4.14.3.0

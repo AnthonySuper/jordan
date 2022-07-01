@@ -92,7 +92,7 @@ newtype AttoparsecParser a = AttoparsecParser
   deriving (Semigroup, Monoid) via (Alt AP.Parser a)
 
 instance JSONTupleParser ArrayParser where
-  consumeItemWith = ParseWithEffect . runAttoparsecParser
+  consumeItemWith = \parser -> ParseWithEffect $ runAttoparsecParser parser
 
 instance JSONParser AttoparsecParser where
   parseObject = \parser -> AttoparsecParser $
@@ -140,7 +140,7 @@ instance JSONParser AttoparsecParser where
 -- | Convert an abstract JSON parser to an Attoparsec Parser.
 -- This function will skip leading whitespace.
 attoparsecParserFor :: (forall parser. JSONParser parser => parser a) -> AP.Parser a
-attoparsecParserFor = (skipSpace *>) . runAttoparsecParser
+attoparsecParserFor = \parser -> (skipSpace *>) $ runAttoparsecParser parser
 {-# INLINE attoparsecParserFor #-}
 
 parseViaAttoparsecWith :: (forall parser. JSONParser parser => parser a) -> ByteString -> Either String a

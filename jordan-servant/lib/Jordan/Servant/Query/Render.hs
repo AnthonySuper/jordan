@@ -74,8 +74,8 @@ instance JSONTupleSerializer QueryRender where
     map (first addArray) $ f other
 
 instance JSONSerializer QueryRender where
-  serializeObject = id
-  serializeTuple = id
+  serializeObject = \x -> x
+  serializeTuple = \x -> x
   serializeTextConstant t = QueryRender $ const [(mempty, Just (encodeUtf8 t))]
   serializeArray =
     QueryRender $
