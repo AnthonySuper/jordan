@@ -34,7 +34,7 @@ common build-deps
     , parallel
     , wai
     , generics-sop
-    , base
+    , base >= 4.14.1 && <4.17
 
 library
     import: build-deps

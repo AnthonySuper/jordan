@@ -31,7 +31,7 @@ common build-deps
     , lens
     , transformers
     , openapi3
-    , base
+    , base >= 4.14.1 && <4.17
 
 -- A copyright notice.
 -- copyright:

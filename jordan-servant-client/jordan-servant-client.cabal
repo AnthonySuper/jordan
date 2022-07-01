@@ -27,7 +27,7 @@ common build-deps
     , http-media
     , transformers
     , servant-client-core
-    , base
+    , base >= 4.14.1 && <4.17
 
 -- A copyright notice.
 -- copyright:

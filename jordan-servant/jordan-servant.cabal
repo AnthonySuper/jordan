@@ -32,7 +32,7 @@ common build-deps
     , http-media
     , transformers
     , parallel
-    , base
+    , base >= 4.14.1 && <4.17
 
 library
     import: build-deps

@@ -151,8 +151,26 @@ class (Selectable f, Representational f) => JSONSerializer f where
 --
 -- This class is derivable generically, and will generate a \"nice\" format.
 -- In my opinion, at least.
+--
+-- If you want to customize this JSON, the newtype 'WithOptions' can be helpful, as it allows you to specify options for the generic serialization.
+-- Unfortunately, due to a weird GHC quirk, you need to use it with @ -XStandaloneDeriving @ as well as @ -XDerivingVia @.
+-- That is, you should write:
+--
+--
+-- @
+-- data PersonFilter = PersonFilter { filterFirstName :: Maybe Text, filterLastName :: Maybe Text }
+--   deriving (Show, Read, Eq, Ord, Generic)
+--
+-- deriving via (WithOptions '[KeepNothingFields] PersonFilter) instance (ToJSON PersonFilter)
+-- @
+
+---- === __Laws__
+--
+-- This instance is lawless, unless 'Jordan.FromJSON.Class.FromJSON' is also defined for this type.
+-- In that case, the representation serialized by 'ToJSON' should match that of the representation parsed by
+-- 'Jordan.FromJSON.Class.FromJSON'.
 class ToJSON v where
-  toJSON :: (forall f. (JSONSerializer f, Representational f) => f v)
+  toJSON :: (forall f. (JSONSerializer f) => f v)
   default toJSON :: (Generic v, GToJSON (Rep v), Typeable v) => (JSONSerializer f) => f v
   toJSON = contramap from $ gToJSON defaultToJSONOptions {toJSONBaseName = fq}
     where

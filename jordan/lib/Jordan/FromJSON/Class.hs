@@ -195,8 +195,26 @@ class (Functor f, forall a. Semigroup (f a), Representational f) => JSONParser f
 --
 -- This class is derivable generically, and will generate a \"nice\" format.
 -- In my opinion, at least.
+--
+-- If you want to customize this JSON, the newtype 'WithOptions' can be helpful, as it allows you to specify options for the generic serialization.
+-- Unfortunately, due to a weird GHC quirk, you need to use it with @ -XStandaloneDeriving @ as well as @ -XDerivingVia @.
+-- That is, you should write:
+--
+--
+-- @
+-- data PersonFilter = PersonFilter { filterFirstName :: Maybe Text, filterLastName :: Maybe Text }
+--   deriving (Show, Read, Eq, Ord, Generic)
+--
+-- deriving via (WithOptions '[KeepNothingFields] PersonFilter) instance (FromJSON PersonFilter)
+-- @
+--
+-- === __Laws__
+--
+-- This instance is lawless, unless 'Jordan.ToJSON.Class.ToJSON' is also defined for this type.
+-- In that case, the representation parsed by 'FromJSON' should match that of the representation serialized by
+-- 'Jordan.ToJSON.Class.ToJSON'.
 class FromJSON value where
-  fromJSON :: (forall f. (JSONParser f, Representational f) => f value)
+  fromJSON :: (JSONParser f) => f value
   {-# INLINE fromJSON #-}
   default fromJSON :: (Generic value, GFromJSON (Rep value), Typeable value) => (JSONParser f => f value)
   fromJSON = to <$> gFromJSON @(Rep value) defaultOptions {fromJSONBaseName = bn}

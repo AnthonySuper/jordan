@@ -42,12 +42,24 @@ newtype PartOfSum f a = MkPartOfSum {getPartOfSum :: f a}
 -- 'Data.Functor.Contravariant.Divisible.Decidable' typeclasses.
 --
 -- In general, using @ -XDerivingVia @, @ -XDeriveGeneric @, @ -XDataKinds @ and this wrapper will make your life much easier.
--- You can specify things like so:
+-- Unfortunately, due to a weird GHC quirk, you also need @ -XDerivingVia @.
+--
+-- That is, the following won't work, complaining about role errors:
 --
 -- @
 --  data PersonFilter = PersonFilter { filterFirstName :: Maybe Text, filterLastName :: Maybe Text }
 --    deriving (Show, Generic)
 --    deriving (ToJSON, FromJSON) via (WithOptions '[KeepNothingFields] PersonFilter)
+-- @
+--
+-- But this will:
+--
+-- @
+--  data PersonFilter = PersonFilter { filterFirstName :: Maybe Text, filterLastName :: Maybe Text }
+--    deriving (Show, Generic)
+--
+--  deriving via (WithOptions '[KeepNothingFields] PersonFilter) instance (ToJSON PersonFilter)
+--  deriving via (WithOptions '[KeepNothingFields] PersonFilter) instance (FromJSON PersonFilter)
 -- @
 newtype WithOptions (options :: [*]) a = WithOptions {getWithOptions :: a}
   deriving (Show, Eq, Ord)

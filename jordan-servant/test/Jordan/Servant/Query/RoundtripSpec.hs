@@ -7,6 +7,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -71,11 +72,9 @@ newtype Coords = Coords {getCoords :: [HomogenousCoord]}
   deriving (Show, Read, Eq, Ord, Generic)
   deriving (Arbitrary) via [HomogenousCoord]
 
-instance FromJSON Coords where
-  fromJSON = fmap Coords fromJSON
+deriving via [HomogenousCoord] instance (FromJSON Coords)
 
-instance ToJSON Coords where
-  toJSON = contramap getCoords toJSON
+deriving via [HomogenousCoord] instance (ToJSON Coords)
 
 instance Arbitrary Color where
   arbitrary = arbitraryBoundedEnum
