@@ -18,7 +18,7 @@ jobs:
     - uses: actions/checkout@v2
     - uses: actions/setup-haskell@v1
       with:
-        ghc-version: ${{ matrix.version }}
+        ghc-version: ${{ matrix.ghc-version }}
         cabal-version: '3.2'
 
     - name: Cache
@@ -27,11 +27,11 @@ jobs:
         cache-name: cache-cabal
       with:
         path: ~/.cabal
-        key: ${{ runner.os }}-${{ matrix.version }}--build-${{ env.cache-name }}-${{ hashFiles('**/*.cabal') }}-${{ hashFiles('**/cabal.project') }}
+        key: ${{ runner.os }}-${{ matrix.ghc-version }}--build-${{ env.cache-name }}-${{ hashFiles('**/*.cabal') }}-${{ hashFiles('**/cabal.project') }}
         restore-keys: |
-          ${{ runner.os }}-${{ matrix.version }}-build-${{ env.cache-name }}-
-          ${{ runner.os }}-${{ matrix.version }}-build-
-          ${{ runner.os }}-${{ matrix.version }}
+          ${{ runner.os }}-${{ matrix.ghc-version }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-${{ matrix.ghc-version }}-build-
+          ${{ runner.os }}-${{ matrix.ghc-version }}
 
     - name: Install dependencies
       run: |
