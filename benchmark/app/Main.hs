@@ -37,11 +37,11 @@ readBenchmarkFiles =
 
 benchAtto (Proxy :: Proxy p) strategy bs = do
   guard True
-  [bench "Jordan Attoparsec (nf)" $ strategy (\f -> J.runParserViaAttoparsec J.fromJSON f :: Either String p) bs]
+  [bench "Jordan Attoparsec (nf)" $ strategy (\f -> J.parseViaAttoparsecWith J.fromJSON f :: Either String p) bs]
 
 benchRep (Proxy :: Proxy p) strategy bs = do
   guard True
-  [bench "Jordan Reporting (nf)" $ strategy (\f -> J.parseJSONReportingWith J.fromJSON f :: Either JSONError p) bs]
+  [bench "Jordan Reporting (nf)" $ strategy (\f -> J.parseOrReportWith J.fromJSON f :: Either JSONError p) bs]
 
 benchAeson (Proxy :: Proxy p) strategy bs = do
   guard True
@@ -69,26 +69,9 @@ makeBench ::
   [Benchmark]
 makeBench label fname p = [makeBenchBoth label fname p]
 
-showResults fname (Proxy :: Proxy p) = do
-  f <- B.readFile fname
-  putStrLn "REPORTING:"
-  either TIO.putStrLn print $ first prettyPrintJSONError (J.parseJSONReporting f :: Either JSONError p)
-  putStrLn "\n"
-  putStrLn "ATTO:"
-  print (J.parseViaAttoparsec f :: Either String p)
-  putStrLn "\n"
-  putStrLn "AESON:"
-  print (A.decode (fromStrict f) :: Maybe p)
-
-main' :: IO ()
-main' = do
-  {-
-  showResults "data/empty-fcollection.json" (Proxy :: Proxy FeatureCollection)
-  showResults "data/us-states.json" (Proxy :: Proxy FeatureCollection)
-  showResults "data/too-many-keys.json" (Proxy :: Proxy OnlyWanted)
-  -}
+main :: IO ()
+main = do
   defaultMain $
     makeBench "GeoJSON of US States" "data/us-states.json" (Proxy :: Proxy FeatureCollection)
       <> makeBench "Object field with lots of extra keys" "data/too-many-keys.json" (Proxy :: Proxy OnlyWanted)
 
-main = main'
