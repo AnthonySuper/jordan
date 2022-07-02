@@ -39,3 +39,5 @@ jobs:
         cabal new-build --only-dependencies --enable-tests --enable-benchmarks all
     - name: Build
       run: cabal new-build --enable-tests --enable-benchmarks all
+    - name: test
+      run: cabal new-test --test-show-details=direct all
