@@ -49,7 +49,7 @@ instance forall a rest context. (HasServer rest context, FromJSON a) => HasServe
         let contentType = fromMaybe "application/octect-stream" $ lookup hContentType $ requestHeaders request
         case matchContent (toList $ contentTypes (Proxy :: Proxy JordanJSON)) contentType of
           Nothing -> delayedFail err415
-          Just _ -> pure (parseJSONReporting @a)
+          Just _ -> pure (parseOrReport @a)
       checkBody parser = withRequest $ \request -> do
         body <- liftIO $ lazyRequestBody request
         case parser (LBS.toStrict body) of
