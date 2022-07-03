@@ -24,13 +24,13 @@ common build-deps
     , text >= 1.2.3.0 && <1.3
     , scientific >= 0.3.7 && <0.4
     , jordan-servant >= 0.1.0.0 && <0.2
-    , servant-openapi3
-    , jordan-openapi
-    , http-types
-    , http-media
-    , lens
-    , transformers
-    , openapi3
+    , servant-openapi3 >= 1.1.7 && <=1.2
+    , jordan-openapi >= 0.1.0 && <= 0.2
+    , http-types >= 0.12.2 && <0.13
+    , http-media >= 0.7 && <0.9
+    , lens >= 4.17 && <5.2
+    , transformers >=0.5.5 && <= 0.7
+    , openapi3 >= 3.1.0 && <3.3
     , base >= 4.14.1 && <4.17
 
 -- A copyright notice.
