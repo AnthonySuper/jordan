@@ -216,4 +216,4 @@ spec = do
     it "works for weird stuff" $ queryEquals (Proxy @WeirdEnum)
     it "works for dictionaries" $ queryEquals (Proxy @Feedback)
     it "works for person feedback" $ queryEquals (Proxy @PersonFeedback)
-    it "works for a weird sum type crap" $ queryEquals (Proxy @CoverBases)
+    fit "works for a weird sum type crap" $ queryEquals (Proxy @CoverBases)
