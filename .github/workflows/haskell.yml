@@ -41,3 +41,9 @@ jobs:
       run: cabal new-build --enable-tests --enable-benchmarks all
     - name: test
       run: cabal new-test --test-show-details=direct all
+    - name: Install markdown-unlit
+      run: cabal install markdown-unlit
+    - name: Build README
+      run: cabal v2-exec ghc -- -pgmL markdown-unlit README.lhs
+    - name: Run README
+      run: ./README
