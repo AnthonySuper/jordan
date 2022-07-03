@@ -80,7 +80,22 @@ We can also serialize JSON, of course:
 viaBuilder = toJSONViaBuilder myPerson
 ```
 
-And, since this is a literate Haskell file, I do need a main.
+### Other Serializers/Parsers
+
+Since we keep serializing and parsing *abstract*, we can actually use them to do more things than plain old JSON conversion.
+`jordan-servant`, for example, provides a way to use those serializers and parsers to roundtrip to/from a *query string*.
+`jordan-openapi` uses them to generate *Open API documentation*.
+You can even write your own serializer or parser: maybe you want to convert back and forth from some binary format, or from JSON schema.
+As long as you can implement a few typeclasses, you can provide this functionality for *all* types that work with Jordan.
+
+## Contributing
+
+Open up an issue if you have a problem or a feature request.
+Open up a pull request if you have a patch.
+
+## Final Bit
+
+This README is actually a literate Haskell file, so I need a `main`.
 Here's that:
 
 ```haskell
