@@ -51,8 +51,8 @@ escapedBrace = do
 afterBrace :: AP.Parser BS.ByteString
 afterBrace = do
   taken <- AP.takeWhile (/= 93)
-  ((taken <>) <$> escapedBrace)
-    <|> (AP.string "]" $> taken)
+  AP.string "]"
+  pure (urlDecode False taken)
 
 escapedBraceEnding :: AP.Parser BS.ByteString
 escapedBraceEnding = do
@@ -62,8 +62,7 @@ escapedBraceEnding = do
 unbracedValueInner :: AP.Parser BS.ByteString
 unbracedValueInner = do
   keyChars <- AP.takeWhile (/= 91) `labelParser` "until starting brace"
-  ((keyChars <>) <$> escapedBraceEnding)
-    <|> pure keyChars
+  pure $ urlDecode False keyChars
 
 unbracedValue :: AP.Parser T.Text
 unbracedValue = do
@@ -77,9 +76,8 @@ unbracedValue = do
 bracedValue :: AP.Parser T.Text
 bracedValue = do
   AP.word8 91 `labelParser` "starting brace"
-  k <- AP.option mempty (AP.string "\\[" $> "[")
   after <- afterBrace
-  case decodeUtf8' (k <> after) of
+  case decodeUtf8' after of
     Left err -> fail $ show err
     Right txt -> pure txt
 

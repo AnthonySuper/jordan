@@ -40,19 +40,19 @@ instance Selectable QueryRender where
         . sel
 
 escapeBracketComponent :: T.Text -> BS.ByteString
-escapeBracketComponent text = endsEscaped
+escapeBracketComponent text = urlEncode False encoded
   where
     encoded = encodeUtf8 text
-    firstEscaped = case BS.stripPrefix "[" encoded of
+    backsEscaped = BS.intercalate "\\" $ BS.split 92 encoded
+    firstEscaped = case BS.stripPrefix "[" backsEscaped of
       Nothing -> encoded
       Just bs -> "\\[" <> bs
     endsEscaped = BS.intercalate "]]" $ BS.split 93 firstEscaped
 
 escapeRawComponent :: T.Text -> BS.ByteString
-escapeRawComponent text = startingEscaped
+escapeRawComponent text = urlEncode False encoded
   where
     encoded = encodeUtf8 text
-    startingEscaped = BS.intercalate "[[" $ BS.split 91 encoded
 
 addBracked :: T.Text -> BS.ByteString -> BS.ByteString
 addBracked key v =

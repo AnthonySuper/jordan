@@ -23,8 +23,8 @@ import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import GHC.Generics
 import Jordan
-import Jordan.Servant.Query.Parse (parseQueryAtKey, parseQueryToKeys, transformToKey, unbracedValue)
-import Jordan.Servant.Query.Render (escapeRawComponent, renderQueryAtKey)
+import Jordan.Servant.Query.Parse (bracedValue, parseQueryAtKey, parseQueryToKeys, transformToKey, unbracedValue)
+import Jordan.Servant.Query.Render (addBracked, escapeRawComponent, renderQueryAtKey)
 import Network.HTTP.Types.URI
 import Test.Hspec
 import Test.QuickCheck
@@ -66,7 +66,7 @@ instance Arbitrary HomogenousCoord where
       <*> arbitrary
       <*> arbitrary
   shrink (HomogenousCoord x y z) =
-    tail $ HomogenousCoord <$> shrink x <*> shrink y <*> shrink z
+    HomogenousCoord <$> shrink x <*> shrink y <*> shrink z
 
 newtype Coords = Coords {getCoords :: [HomogenousCoord]}
   deriving (Show, Read, Eq, Ord, Generic)
@@ -95,7 +95,7 @@ data Person = Person
 
 instance Arbitrary Person where
   arbitrary = Person <$> genValidUtf8 <*> genValidUtf8 <*> arbitrary
-  shrink (Person fn ln a) = tail $ Person <$> shrinkText fn <*> shrinkText ln <*> shrink a
+  shrink (Person fn ln a) = Person <$> shrinkText fn <*> shrinkText ln <*> shrink a
 
 data WeirdEnum
   = WeirdNothing
@@ -114,10 +114,10 @@ instance Arbitrary WeirdEnum where
         WeirdColor <$> arbitrary
       ]
   shrink (WeirdDuo lhs rhs) =
-    tail (WeirdDuo <$> shrink lhs <*> shrink rhs)
-      <|> tail (WeirdDuo lhs <$> shrink rhs)
-      <|> tail (WeirdDuo <$> shrink lhs <*> pure rhs)
-  shrink (WeirdSingle a) = tail $ WeirdSingle <$> shrink a
+    (WeirdDuo <$> shrink lhs <*> shrink rhs)
+      <|> (WeirdDuo lhs <$> shrink rhs)
+      <|> (WeirdDuo <$> shrink lhs <*> pure rhs)
+  shrink (WeirdSingle a) = WeirdSingle <$> shrink a
   shrink _ = []
 
 newtype Feedback = Feedback {ratings :: [(T.Text, Int)]}
@@ -133,7 +133,7 @@ instance Arbitrary Feedback where
   arbitrary = Feedback <$> liftArbitrary ((,) <$> genValidUtf8 <*> arbitrary)
   shrink (Feedback xs) = Feedback <$> liftShrink shrinkPair xs
     where
-      shrinkPair (l, k) = tail $ do
+      shrinkPair (l, k) = do
         l' <- shrinkText l
         k' <- shrink k
         pure (l', k')
@@ -185,7 +185,7 @@ instance Arbitrary QueryKey where
     | otherwise = QueryKey . T.pack . pure <$> T.unpack k
 
 queryEquals :: (ToJSON a, FromJSON a, Show a, Arbitrary a, Eq a) => Proxy a -> Property
-queryEquals (Proxy :: Proxy a) = forAll arbitrary cb
+queryEquals (Proxy :: Proxy a) = forAllShrink arbitrary shrink cb
   where
     cb :: (QueryKey, a) -> Property
     cb (key, v) =
@@ -200,6 +200,19 @@ queryEquals (Proxy :: Proxy a) = forAll arbitrary cb
        in counterexample
             ("Raw was " <> show rendered)
             (parsed === Right v)
+
+serializesInBraces :: T.Text -> Bool
+serializesInBraces t =
+  let inBraces = addBracked t mempty
+      outOfBraces = parseOnly bracedValue inBraces
+   in outOfBraces == Right t
+
+testBraces :: T.Text -> Spec
+testBraces t =
+  it ("properly serializes the key " <> show t <> " in braces") $
+    let inBraces = addBracked t mempty
+        outOfBraces = parseOnly bracedValue inBraces
+     in outOfBraces `shouldBe` Right t
 
 spec :: Spec
 spec = do
@@ -216,4 +229,14 @@ spec = do
     it "works for weird stuff" $ queryEquals (Proxy @WeirdEnum)
     it "works for dictionaries" $ queryEquals (Proxy @Feedback)
     it "works for person feedback" $ queryEquals (Proxy @PersonFeedback)
-    fit "works for a weird sum type crap" $ queryEquals (Proxy @CoverBases)
+    it "works for a weird sum type crap" $ queryEquals (Proxy @CoverBases)
+  describe "round-tripping bracked values" $ do
+    testBraces "[foo"
+    testBraces "\\[foo"
+    testBraces "foo]"
+    testBraces "[foo]"
+    it "works for arbitrary values" $
+      forAllShrink genValidUtf8 shrinkText $ \t ->
+        let inBraces = addBracked t mempty
+            outOfBraces = parseOnly bracedValue inBraces
+         in outOfBraces == Right t
