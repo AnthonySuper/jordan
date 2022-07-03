@@ -44,6 +44,6 @@ jobs:
     - name: Install markdown-unlit
       run: cabal install markdown-unlit
     - name: Build README
-      run: cabal v2-exec ghc -- -pgmL ${{ steps.setup-haskell.outputs.cabal-path }}/markdown-unlit README.lhs
+      run: cabal v2-exec ghc -- -pgmL ~/.cabal/bin/markdown-unlit README.lhs
     - name: Run README
       run: ./README
