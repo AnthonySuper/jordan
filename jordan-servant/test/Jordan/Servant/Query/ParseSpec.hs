@@ -72,7 +72,6 @@ parsesQTo bs a =
 
 spec :: Spec
 spec = describe "Jordan.Servant.Query" $ do
-  queryParsing
   stringParsing
 
 stringParsing :: Spec
@@ -106,14 +105,3 @@ parsesAsKey :: ByteString -> QueryKey -> SpecWith ()
 parsesAsKey input output =
   it ("should parse " <> show input <> " to query key " <> show output) $
     AP.parseOnly parseQueryKey input `shouldBe` Right output
-
-queryParsing :: Spec
-queryParsing = describe "parsing query keys" $ do
-  "q" `parsesAsKey` QueryKey [RawValue "q"]
-  "q[[" `parsesAsKey` QueryKey [RawValue "q["]
-  "q[bar]" `parsesAsKey` QueryKey [RawValue "q", BracedValue "bar"]
-  "q[bar][][baz]" `parsesAsKey` QueryKey [RawValue "q", BracedValue "bar", EmptyBraces, BracedValue "baz"]
-  "q[][][]" `parsesAsKey` QueryKey [RawValue "q", EmptyBraces, EmptyBraces, EmptyBraces]
-  "q[]bar" `parsesAsKey` QueryKey [RawValue "q", EmptyBraces, RawValue "bar"]
-  "q[]]foo]" `parsesAsKey` QueryKey [RawValue "q", BracedValue "]foo"]
-  "q[\\[foo]" `parsesAsKey` QueryKey [RawValue "q", BracedValue "[foo"]
