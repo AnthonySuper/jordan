@@ -44,7 +44,6 @@ import Jordan.FromJSON.Class
 import Jordan.FromJSON.Internal.Attoparsec
 import Jordan.FromJSON.Internal.Permutation
 import Numeric (showHex)
-import qualified Text.Megaparsec as Text
 
 newtype ObjectParser a = ObjectParser
   {runObjectParser :: Permutation AP.Parser a}

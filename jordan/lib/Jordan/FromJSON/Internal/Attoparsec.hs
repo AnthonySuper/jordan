@@ -23,9 +23,7 @@ import qualified Data.Scientific as Sci
 import qualified Data.Scientific as Scientific
 import qualified Data.Text as Text
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
-import Jordan.FromJSON.Class
 import Numeric (showHex)
-import qualified Text.Megaparsec as Text
 
 skipSpace :: AP.Parser ()
 skipSpace = AP.skipWhile isSpace <?> "skipped space"
