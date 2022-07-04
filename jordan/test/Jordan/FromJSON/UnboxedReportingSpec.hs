@@ -68,18 +68,26 @@ instance FromJSON ShortPerson where
 errorTests = describe "parse errors" $ do
   let p = parseOrReport @Person
   let p' = parseOrReport @ShortPerson
+  let noValuesP = Left (ErrorBadObject [("firstName", ErrorNoValue), ("lastName", ErrorNoValue), ("age", ErrorNoValue)])
   it "does the right thing for an empty object" $
     p "{}"
-      `shouldBe` Left (ErrorBadObject [("firstName", ErrorNoValue), ("lastName", ErrorNoValue), ("age", ErrorNoValue)])
+      `shouldBe` noValuesP
+  it "does the right thing for a junk object" $
+    p "{ \"foo\": null }"
+      `shouldBe` noValuesP
   it "does the right thing with one key provided" $
     p "{ \"firstName\": \"Bob\" }"
       `shouldBe` Left (ErrorBadObject [("lastName", ErrorNoValue), ("age", ErrorNoValue)])
   it "does the right thing with two keys provided" $
     p "{ \"age\": 10, \"firstName\": \"rich\" }"
       `shouldBe` Left (ErrorBadObject [("lastName", ErrorNoValue)])
+  let nullAge = Left (ErrorBadObject [("age", ErrorChoice [ErrorBadType JSONTypeNumber JSONTypeNull, ErrorBadType JSONTypeText JSONTypeNull])])
   it "does the right thing where the last key has a bad type" $
     p "{ \"firstName\": \"Bob\", \"lastName\": \"Smith\", \"age\": null }"
-      `shouldBe` Left (ErrorBadObject [("age", ErrorChoice [ErrorBadType JSONTypeNumber JSONTypeNull, ErrorBadType JSONTypeText JSONTypeNull])])
+      `shouldBe` nullAge
+  it "does the right thing when the last key has a bad type and there is a junk key" $
+    p "{ \"firstName\": \"Bob\", \"lastName\": \"Smith\", \"age\": null, \"junk\": true }"
+      `shouldBe` nullAge
   it "does the right thing where the first key has a bad type" $
     p "{ \"age\": null, \"firstName\": \"Bob\", \"lastName\": \"Smith\" }"
       `shouldBe` Left (ErrorBadObject [("age", ErrorChoice [ErrorBadType JSONTypeNumber JSONTypeNull, ErrorBadType JSONTypeText JSONTypeNull])])
