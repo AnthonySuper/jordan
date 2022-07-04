@@ -13,13 +13,12 @@
 module Jordan.FromJSON.Internal.Permutation where
 
 import Control.Applicative (Alternative (..))
-import Control.Monad (void, when)
+import Control.Monad (MonadPlus (..))
 import Data.Bifunctor
 import Data.Foldable (asum)
 import Data.Functor.Compose
 import qualified Data.Map.Lazy as Map
 import Data.Maybe (fromMaybe, isJust)
-import Debug.Trace
 
 data FailingParser parser
   = FailingParser (forall a. parser a)
@@ -76,10 +75,39 @@ instance (Alternative m) => Applicative (Permutation m) where
   pure val = Permutation (Just val) NoFailingParser empty
 
   t1@(Permutation defF failingF choiceF) <*> t2@(Permutation defA failingA choiceA) =
-    Permutation (defF <*> defA) NoFailingParser (map ins2 choiceF ++ map ins1 choiceA)
+    Permutation (defF <*> defA) (failingF <> failingA) (map ins2 choiceF ++ map ins1 choiceA)
     where
       ins1 (Branch perm p) = Branch ((.) <$> t1 <*> perm) p
       ins2 (Branch perm p) = Branch (flip <$> perm <*> t2) p
+
+-- | wrapEffect, but make use of 'MonadPlus' to get \"two kinds of alteration\".
+--
+-- Specifically, '(<|>)' and 'mplus' must differ in that '(<|>)' should *always* combine errors if both sides fail,
+-- and 'mplus' should always take the *first* recoverable error.
+wrapEffectPlus ::
+  forall m a b junk commaish.
+  (MonadPlus m) =>
+  m junk ->
+  m commaish ->
+  Permutation m a ->
+  m a
+wrapEffectPlus takeSingle sep (Permutation def failing choices) =
+  consumeMany `mplus` maybe (eliminateFailing failing) pure def
+  where
+    consumeMany =
+      foldr
+        (mplus . pars)
+        (takeSingle *> sep *> consumeMany)
+        choices
+    runWithEffect :: Permutation m other -> m other
+    runWithEffect perm@(Permutation def' failing' choices') =
+      consumeRec `mplus` maybe (eliminateFailing failing') pure def'
+      where
+        consumeRec = do
+          sep
+          foldr (mplus . pars) (takeSingle *> consumeRec) choices'
+    pars :: Branch m other -> m other
+    pars (Branch perm arg) = flip id <$> arg <*> runWithEffect perm
 
 -- | Wrap up a permutation parser with two effects:
 --
@@ -118,7 +146,7 @@ wrapEffect takeSingle effAfter (Permutation def failing choices) = consumeMany
     -- Due to the recursion here we will do this infinitely until we either cannot
     -- run the junk effect, *or* we have a field that matches one of the choices of the permutation.
     runWithEffect :: Permutation m whatever -> m whatever
-    runWithEffect (Permutation def failing choices) = (effAfter *> consumeRec) <|> maybe (eliminateFailing failing) pure def
+    runWithEffect (Permutation def failing choices) = (effAfter *> consumeRec) <|> maybe empty pure def
       where
         consumeRec =
           foldr ((<|>) . pars) empty choices

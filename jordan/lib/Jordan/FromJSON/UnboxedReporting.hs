@@ -85,11 +85,14 @@ toObjectParser field itemParser =
   ReportingObjectParser $
     asPermutationWithFailing parseKV failNoValue
   where
-    failNoValue = do
-      r <- UP.peekRest
-      UP.failWith $
-        MkJSONObjectError $ Map.singleton field ErrorNoValue
-    parseKV = first (MkJSONObjectError . Map.singleton field) $ parseObjectKV field itemParser
+    failNoValue =
+      UP.failWith
+        (MkJSONObjectError $ Map.singleton field ErrorNoValue)
+    parseKV =
+      first (MkJSONObjectError . Map.singleton field) $
+        parseObjectKV
+          field
+          itemParser
 {-# INLINE toObjectParser #-}
 
 toObjectParserDef field itemParser def =
@@ -189,7 +192,7 @@ instance JSONParser ReportingParser where
       po = first ErrorBadObject $ do
         startBracket
         a <-
-          wrapEffect
+          wrapEffectPlus
             skipAnyKV
             comma
             permute
