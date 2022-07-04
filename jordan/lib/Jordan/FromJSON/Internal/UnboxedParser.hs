@@ -20,14 +20,13 @@
 module Jordan.FromJSON.Internal.UnboxedParser where
 
 import Control.Applicative
-import Control.Monad (when)
+import Control.Monad (MonadPlus (..), when)
 import Data.Bifunctor
 import qualified Data.ByteString as BS
 import Data.ByteString.Internal
 import Data.Functor
 import Data.Monoid (Alt (..))
 import Data.Word
-import Debug.Trace (trace)
 import GHC.Exts
 import GHC.ForeignPtr
 import GHC.Prim
@@ -189,6 +188,12 @@ altParser (Parser# lhs) (Parser# rhs) = Parser# $ \env input s ->
 {-# SPECIALIZE altParser :: Parser# s JSONArrayError a -> Parser# s JSONArrayError a -> Parser# s JSONArrayError a #-}
 {-# INLINE altParser #-}
 
+readSame :: InputState -> InputState -> Bool
+readSame (InputState s) (InputState s') = isTrue# (s ==# s')
+
+readMoreThan :: InputState -> InputState -> Bool
+(InputState s) `readMoreThan` (InputState s') = isTrue# (s ># s')
+
 -- | Monadic bind for these parsers.
 --
 -- Note that this breaks the monad laws, as we do more error accumulation with (<*>) than we do ap.
@@ -204,6 +209,19 @@ bindParser (Parser# arg) cont =
             JustParseResult state' (AccumEL err) -> (# s', JustParseResult state (AccumEL err) #)
             JustParseResult state' (AccumER r) -> runParser (cont r) env state' s'
 {-# INLINE bindParser #-}
+
+mplusParser :: (Semigroup err) => Parser# s err a -> Parser# s err a -> Parser# s err a
+mplusParser (Parser# lhs) (Parser# rhs) = Parser# $ \env input s ->
+  let (# s', !lhs' #) = lhs env input s
+   in case lhs' of
+        -- If the parser failed to parse, we also fail to parse
+        NoParseResult -> rhs env input s'
+        (JustParseResult state (AccumER good)) -> (# s', lhs' #)
+        (JustParseResult state (AccumEL bad)) ->
+          if state `readMoreThan` input
+            then (# s', lhs' #)
+            else rhs env input s'
+{-# INLINE mplusParser #-}
 
 emptyParser :: Parser# s err a
 emptyParser = Parser# $ \_ _ s -> (# s, NoParseResult #)
@@ -243,6 +261,9 @@ instance (Monoid err) => Alternative (Parser err) where
 instance (Semigroup err) => Monad (Parser err) where
   (Parser f) >>= cb = Parser (f `bindParser` (\res -> getParser (cb res)))
   {-# INLINE (>>=) #-}
+
+instance (Monoid err) => MonadPlus (Parser err) where
+  (Parser lhs) `mplus` (Parser rhs) = Parser (lhs `mplusParser` rhs)
 
 parseBSIO :: Parser err res -> ByteString -> IO (Maybe (AE.AccumE err res))
 parseBSIO (Parser (Parser# cb)) (PS (ForeignPtr addr contents) offset' len) = IO parse'
