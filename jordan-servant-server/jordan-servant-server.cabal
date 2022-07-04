@@ -4,7 +4,10 @@ version:            0.1.0.0
 synopsis:           Servers for Jordan-Based Servant Combinators
 
 -- A longer description of the package.
--- description:
+description:
+  Server-Side Orphan Instances for Jordan-Servant.
+  Allows you to use the API combinators provided in that package to write servers.
+
 homepage:           https://github.com/AnthonySuper/jordan
 
 -- A URL where users can report bugs.
