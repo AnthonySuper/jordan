@@ -92,9 +92,19 @@ instance JSONSerializer QueryRender where
     foldMap $ \(key, v) ->
       first (addBracked key) <$> renderItem v
 
-renderQueryAtKeyWith :: (forall jsonSerializer. (JSONSerializer jsonSerializer) => jsonSerializer a) -> T.Text -> a -> Query
+--- | Render a query with a given base key.
+renderQueryAtKeyWith ::
+  -- | Query renderer to use.
+  (forall jsonSerializer. (JSONSerializer jsonSerializer) => jsonSerializer a) ->
+  -- | Base key
+  T.Text ->
+  -- | Value to serialize
+  a ->
+  -- | Query
+  Query
 renderQueryAtKeyWith (QueryRender k) key =
   fmap (first (escapeRawComponent key <>)) . k
 
+-- | Render a query at a given key, using the 'ToJSON' instance, which is what you want most of the time.
 renderQueryAtKey :: (ToJSON a) => T.Text -> a -> Query
 renderQueryAtKey = renderQueryAtKeyWith toJSON

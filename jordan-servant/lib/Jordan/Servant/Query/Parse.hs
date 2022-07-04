@@ -314,12 +314,35 @@ filterToStarting key = mapMaybe keepElement
 
 transformToKey key = filterToStarting key . parseQueryToKeys
 
-parseQueryAtKeyWith :: (forall jsonParser. (JSONParser jsonParser) => jsonParser a) -> T.Text -> Query -> Either String a
+-- | Use Jordan to parse a query at a given \"base\" key.
+--
+-- We need a base key in case the JSON type is \"just an int\" or something.
+parseQueryAtKeyWith ::
+  -- | JSON parser to use.
+  -- Note the rank-N type.
+  (forall jsonParser. (JSONParser jsonParser) => jsonParser a) ->
+  -- | Base key to use in the query string.
+  T.Text ->
+  -- | Query string
+  Query ->
+  -- | Either a value, or a brief (not super helpful) description of what went wrong.
+  Either String a
 parseQueryAtKeyWith (JordanQueryParser (QueryParser q)) key queryString = do
   fst <$> q Just (transformToKey key queryString)
 
+-- | Determine if there are any query keys that match this base key.
+--
+-- >>> hasQueryAtKey "foo" (parseQuery "foo[bar][baz]=true")
+-- True
+--
+-- >>> hasQueryAtKey "foo" (parseQuery "bar[baz]=true&bar[foo]=true&foo=true")
+-- True
+--
+-- >>> hasQueryAtKey "foo" (parseQuery "bar[baz]=true&bar[foo]=true")
+-- False
 hasQueryAtKey :: T.Text -> Query -> Bool
 hasQueryAtKey k q = not (null $ transformToKey k q)
 
+-- | Like 'parseQueryAtKeyWith', but uses the 'FromJSON' instance, which is what you want 90% of the time.
 parseQueryAtKey :: (FromJSON a) => T.Text -> Query -> Either String a
 parseQueryAtKey = parseQueryAtKeyWith fromJSON

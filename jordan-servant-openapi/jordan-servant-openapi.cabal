@@ -4,7 +4,10 @@ version:            0.1.0.0
 synopsis:           OpenAPI schemas for Jordan-Powered Servant APIs
 
 -- A longer description of the package.
--- description:
+description:
+  Jordan Servant OpenAPI provides orphan instances to generate OpenAPI V3 documenation
+  for Jordan-Powered Servant APIs.
+
 homepage:           https://github.com/AnthonySuper/jordan
 
 -- A URL where users can report bugs.

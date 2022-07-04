@@ -4,7 +4,12 @@ version:            0.1.0.0
 synopsis:           Servant Combinators for Jordan
 
 -- A longer description of the package.
--- description:
+description:
+  Jordan Servant provides servant combinators for Jordan types, allowing you
+  to use Jordan to build web APIs.
+  .
+  It has sister packages which provide server or client functionality.
+  This package just provides the types, as well as a mechanism to serialize or parse JSON.
 homepage:
 
 -- A URL where users can report bugs.

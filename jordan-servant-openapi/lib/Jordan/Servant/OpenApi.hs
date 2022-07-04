@@ -12,6 +12,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+-- | Provides orphan instances for Jordan servant combinators that allow the generation of documentation.
 module Jordan.Servant.OpenApi where
 
 import Control.Lens

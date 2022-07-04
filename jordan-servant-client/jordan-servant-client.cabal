@@ -4,7 +4,10 @@ version:            0.1.0.0
 synopsis:           Servant Client Instances for Jordan Servant Types
 
 -- A longer description of the package.
--- description:
+description:
+  Jordan Servant Client provides orphan instances so you can use Jordan types in a Servant client.
+  This module is only designed to be used with Jordan-Servant-Server.
+
 homepage:           https://github.com/AnthonySuper/jordan
 
 -- A URL where users can report bugs.

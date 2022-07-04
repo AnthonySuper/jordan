@@ -1,10 +1,15 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Jordan.OpenAPI
-  ( getFromNamed,
+  ( -- * Documenting FromJSON Schemas
+    getFromNamed,
     getToNamed,
+
+    -- * Documenting ToJSON schemas
     getFromRef,
     getToRef,
+
+    -- * Newtype wrappers for DerivingVia
     JordanFromJSONSchema (..),
     JordanToJSONSchema (..),
   )

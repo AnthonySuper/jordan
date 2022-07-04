@@ -29,9 +29,11 @@ instance ToJSON a => ToJSON (ViaJordan a) where
 instance (HasStatus a) => HasStatus (ViaJordan a) where
   type StatusOf (ViaJordan a) = StatusOf a
 
+-- | Overlapping instance: sidestep Aeson, use Jordan.
 instance {-# OVERLAPPING #-} (ToJSON a) => MimeRender JSON (ViaJordan a) where
   mimeRender Proxy = toJSONViaBuilder . getViaJordan
 
+-- | Overlapping instance: sidestep Aeson, just Jordan.
 instance {-# OVERLAPPING #-} (FromJSON a) => MimeUnrender JSON (ViaJordan a) where
   mimeUnrender Proxy = parseOnly (ViaJordan <$> attoparsecParser)
   mimeUnrenderWithType Proxy _ = parseOnly (ViaJordan <$> attoparsecParser)

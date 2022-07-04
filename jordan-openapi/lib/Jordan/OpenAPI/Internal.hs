@@ -7,6 +7,9 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
+-- | Internal module that provides JSON parser and serializers that convert to OpenAPI documentation.
+--
+-- Note that this module is full of internal-use-only functions and should probably n ever actually be imported.
 module Jordan.OpenAPI.Internal where
 
 import Control.Applicative (Alternative (..))
@@ -14,9 +17,8 @@ import Control.Monad (unless, when)
 import qualified Data.Aeson.Types as Aeson
 import Data.Function (on)
 import Data.Functor (void)
-import Data.Functor.Const
-import Data.Functor.Contravariant
-import Data.Functor.Contravariant.Divisible
+import Data.Functor.Contravariant (Contravariant (contramap))
+import Data.Functor.Contravariant.Divisible (Divisible (..))
 import qualified Data.HashMap.Strict.InsOrd as InsOrd
 import Data.Maybe (fromMaybe)
 import Data.OpenApi.Declare
@@ -37,11 +39,14 @@ import Optics.Iso (non)
 import Optics.Operators
 import Optics.Optic ((%), (&))
 
+-- | Declare with a phantom type parameter.
 newtype ConstDeclare env r a = ConstDeclare {runConstDeclare :: Declare env r}
 
+-- | Fmap ignores argument
 instance Functor (ConstDeclare env r) where
   fmap _ (ConstDeclare d) = ConstDeclare d
 
+-- | Applicative combines declarations.
 instance (Monoid r, Monoid env) => Applicative (ConstDeclare env r) where
   pure _ = ConstDeclare $ pure mempty
   (ConstDeclare f) <*> (ConstDeclare a) = ConstDeclare $ do
@@ -49,6 +54,7 @@ instance (Monoid r, Monoid env) => Applicative (ConstDeclare env r) where
     a' <- a
     pure $ f' <> a'
 
+-- | Contravariant ignores argument.
 instance Contravariant (ConstDeclare env r) where
   contramap _ (ConstDeclare d) = ConstDeclare d
 
@@ -74,12 +80,6 @@ instance Semigroup PropertyDeclare where
 instance Monoid PropertyDeclare where
   mempty = PropertyDeclare mempty mempty
 
-newtype ObjectSchema a = ObjectSchema
-  { getObjectSchema ::
-      Declare (Definitions Schema) PropertyDeclare
-  }
-  deriving (Functor, Applicative, Contravariant, Divisible) via (ConstDeclare (Definitions Schema) PropertyDeclare)
-
 addDescription ::
   T.Text ->
   Referenced Schema ->
@@ -96,6 +96,12 @@ addDescription text = \case
       #_schemaDescription ?~ text $
         #_schemaOneOf ?~ [Inline sc] $
           mempty
+
+newtype ObjectSchema a = ObjectSchema
+  { getObjectSchema ::
+      Declare (Definitions Schema) PropertyDeclare
+  }
+  deriving (Functor, Applicative, Contravariant, Divisible) via (ConstDeclare (Definitions Schema) PropertyDeclare)
 
 instance JSONObjectParser ObjectSchema where
   parseFieldWithDefault key = \prop _ -> ObjectSchema $ do
@@ -144,13 +150,22 @@ instance Selectable JSONSchema where
   giveUp = mempty
   select _ (JSONSchema lhs) (JSONSchema rhs) = JSONSchema lhs <> JSONSchema rhs
 
+-- | Empty instance: must be both a boolean and a text value, which is not possible (obviously!)
+instance Monoid (JSONSchema a) where
+  mempty = JSONSchema $ do
+    t <- getJSONSchema parseText
+    b <- getJSONSchema parseBool
+    pure $ unnamed $ (#_schemaAllOf ?~ [Inline $ _namedSchemaSchema t, Inline $ _namedSchemaSchema b]) mempty
+
 sameTypes :: Schema -> Schema -> Bool
 sameTypes = (==) `on` (^. #_schemaType)
 
+bothHaveEnum :: Schema -> Schema -> Bool
 bothHaveEnum a b = enumValues a /= [] && enumValues b /= []
 
 enumValues = (^. #_schemaEnum % non [])
 
+combineInline :: Schema -> Schema -> Schema
 combineInline a b
   | sameTypes a b && bothHaveEnum a b = (#_schemaEnum ?~ (enumValues a <> enumValues b)) a
   | otherwise =
@@ -164,13 +179,6 @@ combineSchemas = curry $ \case
   (Ref a, Inline b) ->
     (#_schemaOneOf ?~ [Ref a] <> fromMaybe [Inline b] (_schemaOneOf b)) mempty
   (Ref a, Ref b) -> (#_schemaOneOf ?~ [Ref a, Ref b]) mempty
-
--- | Empty instance: must be both a boolean and a text value, which is not possible (obviously!)
-instance Monoid (JSONSchema a) where
-  mempty = JSONSchema $ do
-    t <- getJSONSchema parseText
-    b <- getJSONSchema parseBool
-    pure $ unnamed $ (#_schemaAllOf ?~ [Inline $ _namedSchemaSchema t, Inline $ _namedSchemaSchema b]) mempty
 
 getJSONRef ::
   forall a.
@@ -313,17 +321,26 @@ instance JSONSerializer JSONSchema where
     (NamedSchema _ s) <- getJSONSchema ser
     pure $ NamedSchema (Just $ encodeRefName t) s
 
--- | Get documentation for a type that implements FromJSON
+-- | Get documentation for a type that implements 'Jordan.FromJSON.Class.FromJSON', in the @ Declare @ environment.
+--
+-- This will be inline documention, IE, it will be named but not stored in the schema definitions.
 getFromNamed :: forall a. (FromJSON a) => Proxy a -> Declare (Definitions Schema) NamedSchema
 getFromNamed p = getJSONSchema (fromJSON :: JSONSchema a)
 
--- | Get a Referenced Schema for this schema member.
+-- | Get documention for a type that implements 'Jordan.FromJSON.Class.FromJSON'.
+--
+-- This will store the type in the schemas key of the schema definitions, and give back a reference to it.
 getFromRef :: forall a. (FromJSON a) => Proxy a -> Declare (Definitions Schema) (Referenced Schema)
 getFromRef = getRefDef . getFromNamed
 
--- | Get documentation for a type that implements ToJSON
+-- | Get documentation for a type that implements 'Jordan.ToJSON.Class.ToJSON'.
+--
+-- This will be inline documentation, IE, it will be named but not stored in the schema definitions.
 getToNamed :: forall a. (ToJSON a) => Proxy a -> Declare (Definitions Schema) NamedSchema
 getToNamed p = getJSONSchema (toJSON :: JSONSchema a)
 
+-- | Get documentation for a type that implements 'Jordan.ToJSON.Class.ToJSON'.
+--
+-- This will store the type in the schemas key of the schemas definitions, then give back a reference to it.
 getToRef :: forall a. (ToJSON a) => Proxy a -> Declare (Definitions Schema) (Referenced Schema)
 getToRef = getRefDef . getToNamed

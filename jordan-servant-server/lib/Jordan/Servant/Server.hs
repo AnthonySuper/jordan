@@ -39,6 +39,8 @@ import Servant.Server.Internal
 import Servant.Server.Internal.ServerError
 import Servant.Server.UVerb
 
+-- | Parse a request body.
+-- On parse errors where a valid but wrong-for-the-type JSON is given, we return back an error report.
 instance forall a rest context. (HasServer rest context, FromJSON a) => HasServer (ReportingRequestBody a :> rest) context where
   type ServerT (ReportingRequestBody a :> rest) m = a -> ServerT rest m
   hoistServerWithContext _ pc nt s = hoistServerWithContext (Proxy :: Proxy rest) pc nt . s
