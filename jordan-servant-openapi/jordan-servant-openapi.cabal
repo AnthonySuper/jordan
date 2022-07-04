@@ -16,6 +16,10 @@ license:            MIT
 license-file:       LICENSE
 author:             Anthony Super
 maintainer:         anthony@noided.media
+-- A copyright notice.
+-- copyright:
+category:           Web
+extra-source-files: CHANGELOG.md
 
 common build-deps
   build-depends:
@@ -36,10 +40,6 @@ common build-deps
     , openapi3 >= 3.1.0 && <3.3
     , base >= 4.14.1 && <4.17
 
--- A copyright notice.
--- copyright:
-category:           Web
-extra-source-files: CHANGELOG.md
 
 library
     import: build-deps
