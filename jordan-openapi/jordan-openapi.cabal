@@ -4,7 +4,8 @@ version:            0.2.0.0
 synopsis:           OpenAPI Definitions for Jordan, Automatically
 
 -- A longer description of the package.
--- description:
+description:
+  Automatic generation of documentation for Jordan-powered types.
 homepage:
 
 -- A URL where users can report bugs.
