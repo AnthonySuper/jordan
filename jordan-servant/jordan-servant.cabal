@@ -4,7 +4,12 @@ version:            0.1.0.0
 synopsis:           Servant Combinators for Jordan
 
 -- A longer description of the package.
--- description:
+description:
+  Jordan Servant provides servant combinators for Jordan types, allowing you
+  to use Jordan to build web APIs.
+  .
+  It has sister packages which provide server or client functionality.
+  This package just provides the types, as well as a mechanism to serialize or parse JSON.
 homepage:
 
 -- A URL where users can report bugs.
@@ -23,27 +28,46 @@ common build-deps
   build-depends:
     , attoparsec >= 0.14.1 && <0.15
     , bytestring >= 0.10.8.1 && <0.12
-    , jordan >= 0.1.0.0 && <0.2
-    , servant >= 0.18 && <0.19
+    , contravariant >= 1.5.5 && <1.6
+    , jordan >= 0.2.0.0 && <0.3
+    , servant >= 0.18 && <0.20
     , text >= 1.2.3.0 && <1.3
+    , scientific >= 0.3.7 && <0.4
+    , http-types >= 0.12.2 && <0.13
+    , http-media >= 0.7 && <0.9
+    , transformers >=0.5.5 && <= 0.7
+    , parallel >= 3.2 && <=3.3
+    , base >= 4.14.1 && <4.17
 
 library
     import: build-deps
     exposed-modules:
         Jordan.Servant
+      , Jordan.Servant.Response
+      , Jordan.Servant.Query
+      , Jordan.Servant.Query.Parse
+      , Jordan.Servant.Query.Render
 
     -- Modules included in this library but not exported.
     -- other-modules:
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
-    build-depends:    base ^>=4.14.1.0
     hs-source-dirs:   lib
     default-language: Haskell2010
 
 test-suite jordan-servant-test
+    import: build-deps
+    other-modules:
+        Jordan.Servant.Query.ParseSpec
+      , Jordan.Servant.Query.RoundtripSpec
+
+    build-depends:
+        hspec
+      , jordan-servant
+      , QuickCheck
+      , quickcheck-text
     default-language: Haskell2010
     type:             exitcode-stdio-1.0
     hs-source-dirs:   test
-    main-is:          MyLibTest.hs
-    build-depends:    base ^>=4.14.1.0
+    main-is:          Jordan/ServantSpec.hs

@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               jordan
-version:            0.1.0.0
+version:            0.2.0.0
 synopsis:           JSON with Structure
 
 -- A longer description of the package.
@@ -38,30 +38,32 @@ common build-deps
     , bytestring >= 0.10.8.1 && <0.12
     , containers >= 0.6.2 && <0.7
     , scientific >= 0.3.7 && <0.4
-    , text >= 1.2.3.0 && <1.3
-    , megaparsec >= 9.1.0 && <9.2
+    , text >= 1.2.3.0 && <2.1
     , contravariant >= 1.5.5 && <1.6
     , parser-combinators >= 1.3.0 && < 1.4
+    , deepseq >= 1.4 && <= 1.5
+    , ghc-prim >= 0.6.1 && <0.9
+    , base >= 4.14.1 && <4.17
 
 library
     import: build-deps
     exposed-modules:
         Jordan.FromJSON.Class
-      , Jordan.FromJSON.Megaparsec
       , Jordan.FromJSON.Attoparsec
-      , Jordan.FromJSON.ParseInternal
+      , Jordan.FromJSON.Internal.Attoparsec
+      , Jordan.FromJSON.Internal.UnboxedParser
+      , Jordan.FromJSON.Internal.Permutation
+      , Jordan.FromJSON.Internal.UnboxedReporting
+      , Jordan.FromJSON.UnboxedReporting
+      , Jordan.Types.Internal.MergeMap
+      , Jordan.Types.Internal.AccumE
+      , Jordan.Types.JSONValue
+      , Jordan.Types.JSONType
+      , Jordan.Types.JSONError
       , Jordan.ToJSON.Class
-      , Jordan.ToJSON.Text
       , Jordan.ToJSON.Builder
       , Jordan.Generic.Options
       , Jordan
-
-    -- Modules included in this library but not exported.
-    -- other-modules:
-
-    -- LANGUAGE extensions used by modules in this package.
-    -- other-extensions:
-    build-depends:    base ^>=4.14.1.0
     hs-source-dirs:   lib
     default-language: Haskell2010
 
@@ -75,14 +77,13 @@ test-suite jordan-test
       , QuickCheck
       , quickcheck-text
     other-modules:
-        Jordan.FromJSON.MegaparsecSpec
-      , Jordan.FromJSON.AttoparsecSpec
+        Jordan.FromJSON.AttoparsecSpec
+      , Jordan.FromJSON.UnboxedReportingSpec
       , Jordan.SpecDefs
-      , Jordan.ToJSON.TextSpec
       , Jordan.ToJSON.BuilderSpec
       , Jordan.RoundTripSpec
     default-language: Haskell2010
     type:             exitcode-stdio-1.0
     hs-source-dirs:   test
     main-is:          JordanSpec.hs
-    build-depends:    base ^>=4.14.1.0
+    ghc-options: -fprint-potential-instances
