@@ -7,7 +7,6 @@ synopsis:           Servant Client Instances for Jordan Servant Types
 description:
   Jordan Servant Client provides orphan instances so you can use Jordan types in a Servant client.
   This module is only designed to be used with Jordan-Servant-Server.
-
 homepage:           https://github.com/AnthonySuper/jordan
 
 -- A URL where users can report bugs.
@@ -16,6 +15,11 @@ license:            MIT
 license-file:       LICENSE
 author:             Anthony Super
 maintainer:         anthony@noided.media
+
+-- A copyright notice.
+-- copyright:
+category:           Web
+extra-source-files: CHANGELOG.md
 
 common build-deps
   build-depends:
@@ -32,10 +36,6 @@ common build-deps
     , servant-client-core >=0.18 && <0.20
     , base >= 4.14.1 && <4.17
 
--- A copyright notice.
--- copyright:
-category:           Web
-extra-source-files: CHANGELOG.md
 
 library
     import: build-deps
