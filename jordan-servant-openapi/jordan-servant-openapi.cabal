@@ -28,7 +28,7 @@ common build-deps
     , scientific >= 0.3.7 && <0.4
     , jordan-servant >= 0.1.0.0 && <0.2
     , servant-openapi3 >= 2.0 && <=2.1
-    , jordan-openapi >= 0.1.0 && <= 0.2
+    , jordan-openapi >= 0.2.0 && <= 0.3
     , http-types >= 0.12.2 && <0.13
     , http-media >= 0.7 && <0.9
     , lens >= 4.17 && <5.2
